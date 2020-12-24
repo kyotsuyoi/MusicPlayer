@@ -1,0 +1,216 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/colorPrimary"
+    tools:context=".MainActivity">
+
+    <ImageView
+        android:id="@+id/activityMain_ImageView_ExternalMusicList"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginBottom="24dp"
+        app:layout_constraintBottom_toTopOf="@+id/activityMain_ImageView_ShuffleCheck"
+        app:layout_constraintStart_toStartOf="parent"
+        app:srcCompat="@drawable/ic_cloud_download"
+        android:contentDescription="@string/todo" />
+
+    <TextView
+        android:id="@+id/activityMain_TextView_MusicName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:text="@string/app_name"
+        android:textColor="@color/colorText"
+        android:textSize="20sp"
+        app:layout_constraintBottom_toTopOf="@+id/activityMain_TextView_ArtistName"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <ImageView
+        android:id="@+id/activityMain_ImageView_Art"
+        android:layout_width="350sp"
+        android:layout_height="350sp"
+        android:layout_centerHorizontal="true"
+        android:layout_marginStart="16dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginRight="16dp"
+        android:background="@mipmap/unknown"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        android:contentDescription="@string/todo" />
+
+    <ImageView
+        android:id="@+id/activityMain_ImageView_Next"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginStart="64dp"
+        android:background="@drawable/ic_skip_next"
+        app:layout_constraintBottom_toBottomOf="@+id/activityMain_ImageView_Play"
+        app:layout_constraintStart_toEndOf="@+id/activityMain_ImageView_Play"
+        app:layout_constraintTop_toTopOf="@+id/activityMain_ImageView_Play"
+        android:contentDescription="@string/todo" />
+
+    <ImageView
+        android:id="@+id/activityMain_ImageView_Play"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:layout_marginBottom="32dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:contentDescription="@string/todo" />
+
+    <ImageView
+        android:id="@+id/activityMain_ImageView_Previous"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_marginEnd="64dp"
+        android:background="@drawable/ic_skip_previous"
+        app:layout_constraintBottom_toBottomOf="@+id/activityMain_ImageView_Play"
+        app:layout_constraintEnd_toStartOf="@+id/activityMain_ImageView_Play"
+        app:layout_constraintTop_toTopOf="@+id/activityMain_ImageView_Play"
+        android:contentDescription="@string/todo" />
+
+    <SeekBar
+        android:id="@+id/activityMain_SeekBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginLeft="16dp"
+        android:layout_marginTop="32dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginRight="16dp"
+        app:layout_constraintBottom_toTopOf="@+id/activityMain_ImageView_Play"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/activityMain_ImageView_Art" />
+
+    <TextView
+        android:id="@+id/activityMain_TextView_CurrentTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/activityMain_SeekBar"
+        android:layout_marginStart="16dp"
+        android:textColor="@color/colorText"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/activityMain_SeekBar" />
+
+    <TextView
+        android:id="@+id/activityMain_TextView_TotalTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/activityMain_SeekBar"
+        android:layout_alignEnd="@+id/activityMain_ImageView_Previous"
+        android:layout_marginEnd="16dp"
+        android:textColor="@color/colorText"
+        android:textAppearance="?android:attr/textAppearanceSmall"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/activityMain_SeekBar" />
+
+    <TextView
+        android:id="@+id/activityMain_TextView_ArtistName"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:textAppearance="?android:attr/textAppearanceMedium"
+        android:textColor="@color/colorText"
+        app:layout_constraintBottom_toTopOf="@+id/activityMain_SeekBar"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <ImageView
+        android:id="@+id/activityMain_ImageView_Repeat"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="32dp"
+        app:layout_constraintBottom_toTopOf="@+id/activityMain_TextView_TotalTime"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:srcCompat="@drawable/ic_repeat"
+        android:contentDescription="@string/todo" />
+
+    <ImageView
+        android:id="@+id/activityMain_ImageView_Shuffle"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginBottom="32dp"
+        app:layout_constraintBottom_toTopOf="@+id/activityMain_TextView_CurrentTime"
+        app:layout_constraintStart_toStartOf="parent"
+        app:srcCompat="@drawable/ic_transform"
+        android:contentDescription="@string/todo" />
+
+    <ImageView
+        android:id="@+id/activityMain_ImageView_ShuffleCheck"
+        android:layout_width="12dp"
+        android:layout_height="12dp"
+        android:contentDescription="@string/todo"
+        app:layout_constraintBottom_toTopOf="@+id/activityMain_ImageView_Shuffle"
+        app:layout_constraintEnd_toEndOf="@+id/activityMain_ImageView_Shuffle"
+        app:layout_constraintStart_toStartOf="@+id/activityMain_ImageView_Shuffle"
+        app:srcCompat="@drawable/ic_fiber_manual_record" />
+
+    <ImageView
+        android:id="@+id/activityMain_ImageView_RepeatCheck"
+        android:layout_width="12dp"
+        android:layout_height="12dp"
+        android:contentDescription="@string/todo"
+        app:layout_constraintBottom_toTopOf="@+id/activityMain_ImageView_Repeat"
+        app:layout_constraintEnd_toEndOf="@+id/activityMain_ImageView_Repeat"
+        app:layout_constraintStart_toStartOf="@+id/activityMain_ImageView_Repeat"
+        app:srcCompat="@drawable/ic_fiber_manual_record" />
+
+    <TextView
+        android:id="@+id/activityMain_TextView_RepeatOneOrAll"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/n"
+        android:textSize="12sp"
+        app:layout_constraintBottom_toBottomOf="@+id/activityMain_ImageView_RepeatCheck"
+        app:layout_constraintEnd_toEndOf="@+id/activityMain_ImageView_RepeatCheck"
+        app:layout_constraintStart_toStartOf="@+id/activityMain_ImageView_RepeatCheck"
+        app:layout_constraintTop_toTopOf="@+id/activityMain_ImageView_RepeatCheck" />
+
+    <ImageView
+        android:id="@+id/activityMain_ImageView_InternalMusicList"
+        android:layout_width="30dp"
+        android:layout_height="30dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="24dp"
+        app:layout_constraintBottom_toTopOf="@+id/activityMain_ImageView_RepeatCheck"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:srcCompat="@drawable/ic_queue_music"
+        android:contentDescription="@string/todo" />
+
+    <ImageView
+        android:id="@+id/activityMain_ImageView_Favorite"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        app:layout_constraintBottom_toTopOf="@+id/activityMain_TextView_MusicName"
+        app:layout_constraintEnd_toStartOf="@+id/activityMain_ImageView_InternalMusicList"
+        app:layout_constraintStart_toEndOf="@+id/activityMain_ImageView_ExternalMusicList"
+        app:layout_constraintTop_toBottomOf="@+id/activityMain_ImageView_Art"
+        app:srcCompat="@drawable/ic_favorite_border"
+        android:contentDescription="@string/todo" />
+
+    <ProgressBar
+        android:id="@+id/activityMain_ImageView_ProgressBar"
+        style="?android:attr/progressBarStyle"
+        android:layout_width="50dp"
+        android:layout_height="50dp"
+        app:layout_constraintBottom_toBottomOf="@+id/activityMain_ImageView_ExternalMusicList"
+        app:layout_constraintEnd_toEndOf="@+id/activityMain_ImageView_ExternalMusicList"
+        app:layout_constraintStart_toStartOf="@+id/activityMain_ImageView_ExternalMusicList"
+        app:layout_constraintTop_toTopOf="@+id/activityMain_ImageView_ExternalMusicList" />
+
+</androidx.constraintlayout.widget.ConstraintLayout>
