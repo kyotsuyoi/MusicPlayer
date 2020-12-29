@@ -11,18 +11,54 @@
         android:id="@+id/linearLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
+        android:orientation="horizontal"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <SearchView
-            android:id="@+id/dialogInternalMusic_SearchView"
-            style="Widget.AppCompat.SearchView"
+        <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:theme="@style/SearchViewStyle"
-            android:tooltipText="Nome da tarefa"
-            tools:targetApi="o" />
+            android:layout_height="match_parent">
+
+            <SearchView
+                android:id="@+id/dialogInternalMusic_SearchView"
+                style="Widget.AppCompat.SearchView"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:theme="@style/SearchViewStyle"
+                android:tooltipText="Nome da tarefa"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toStartOf="@+id/dialogInternalMusic_ImageViewList"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                tools:targetApi="o">
+
+            </SearchView>
+
+            <ImageView
+                android:id="@+id/dialogInternalMusic_ImageViewFavorite"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:srcCompat="@drawable/ic_favorite"
+                android:contentDescription="@string/todo" />
+
+            <ImageView
+                android:id="@+id/dialogInternalMusic_ImageViewList"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:layout_marginEnd="16dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintEnd_toStartOf="@+id/dialogInternalMusic_ImageViewFavorite"
+                app:layout_constraintTop_toTopOf="parent"
+                app:srcCompat="@drawable/ic_list"
+                android:contentDescription="@string/todo" />
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
     </LinearLayout>
 
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout

@@ -9,18 +9,26 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import android.annotation.SuppressLint;
 import android.app.Dialog;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
-import android.content.res.Resources;
+import android.content.pm.PackageInfo;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.AudioManager;
 import android.media.MediaMetadataRetriever;
 import android.media.MediaPlayer;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.util.DisplayMetrics;
+import android.view.KeyEvent;
 import android.view.View;
 
 import android.widget.ImageView;
@@ -28,12 +36,15 @@ import android.widget.ProgressBar;
 import android.widget.SearchView;
 import android.widget.SeekBar;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.example.mediaplayer.CommonClasses.ApiClient;
+import com.example.mediaplayer.CommonClasses.OnClearFormRecentService;
+import com.example.mediaplayer.CommonClasses.PlayerNotification;
 import com.example.mediaplayer.CommonClasses.RecyclerItemClickListener;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -52,7 +63,7 @@ public class MainActivity extends AppCompatActivity {
 
     private ImageView imageViewNext, imageViewPlay, imageViewPrevious;
     private ImageView imageViewArt;
-    private MediaPlayer mediaPlayer;
+    private static MediaPlayer mediaPlayer;
 
     private ImageView imageViewShuffle, imageViewShuffleCheck, imageViewRepeat, imageViewRepeatCheck,
             imageViewInternalMusicList, imageViewExternalMusicList, imageViewFavorite;
@@ -69,14 +80,7 @@ public class MainActivity extends AppCompatActivity {
 
     private SearchView searchView;
 
-    //public static int oneTimeOnly = 0;
-
-    //private boolean isPaused = true;
-
     private String path;
-    //private List<File> files;
-    //private JsonArray data;
-    //private int selectedFile = 0;
 
     private RecyclerView recyclerViewMusicList;
     private SwipeRefreshLayout swipeRefresh;
@@ -84,16 +88,15 @@ public class MainActivity extends AppCompatActivity {
     private ExternalMusicListAdapter externalAdapter;
 
     private final com.example.mediaplayer.CommonClasses.Handler Handler = new com.example.mediaplayer.CommonClasses.Handler();
-    private int R_ID;
+    private final int R_ID = R.id.activityMain_ImageView_Play;
     private final MusicListInterface musicListInterface = ApiClient.getApiClient().create(MusicListInterface.class);
 
-    private String selectedFileName;
-    private ArrayList<String> arrayList;
+    public static String selectedFileName;
+    private List<File> favoriteList;
 
-    //private int lastExternalPlayPosition = -1;
+    private NotificationManager notificationManager;
 
-    //private AudioManager audioManager;
-    //private AudioManagerReceiver audioManagerReceiver;
+    public static JsonObject musicInfo;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -101,9 +104,7 @@ public class MainActivity extends AppCompatActivity {
 
         setContentView(R.layout.activity_main);
 
-        R_ID = R.id.activityMain_ImageView_Play;
         mediaPlayer = new MediaPlayer();
-        mediaPlayer.stop();
 
         imageViewNext = findViewById(R.id.activityMain_ImageView_Next);
         imageViewPlay = findViewById(R.id.activityMain_ImageView_Play);
@@ -130,10 +131,6 @@ public class MainActivity extends AppCompatActivity {
         progress = findViewById(R.id.activityMain_ImageView_ProgressBar);
         progress.setVisibility(View.INVISIBLE);
 
-        /*audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
-        audioManagerReceiver = new AudioManagerReceiver();
-        audioManagerReceiver.onReceive(this, getIntent());*/
-
         imageViewShuffleCheck.setVisibility(View.INVISIBLE);
         imageViewRepeatCheck.setVisibility(View.INVISIBLE);
 
@@ -142,25 +139,37 @@ public class MainActivity extends AppCompatActivity {
         seekbar = findViewById(R.id.activityMain_SeekBar);
         seekbar.setClickable(false);
 
-        imageViewPlay.setImageDrawable(getResources().getDrawable(R.drawable.ic_play_arrow));
+        imageViewPlay.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_play_arrow,getTheme()));
+        //imageViewPlay.setImageDrawable(getResources().getDrawable(R.drawable.ic_play_arrow));
 
         path = Objects.requireNonNull(getExternalFilesDir(Environment.DIRECTORY_MUSIC)).getPath();
 
-        arrayList = new ArrayList<>();
+        favoriteList = new ArrayList<>();
         SetButtons();
         LoadPreferences();
         GetInternalMusicList();
+        Shuffle();
         SetMusic(0);
 
-        if (savedInstanceState != null) {
-            internalAdapter.setPaused(savedInstanceState.getBoolean("isPaused"));
+        createChannel();
+
+        TextView textViewVersion = findViewById(R.id.activityMain_TextView_Version);
+        String ver = "Versão não encontrada";
+        try {
+            PackageInfo packageInfo;
+            packageInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+            ver = "Versão " + packageInfo.versionName;
+            textViewVersion.setText(ver);
+        } catch (Exception e) {
+            textViewVersion.setText(ver);
         }
+
     }
 
     @Override
     protected void onSaveInstanceState(@NonNull Bundle outState) {
+        outState.putBoolean("isPaused", !mediaPlayer.isPlaying());
         super.onSaveInstanceState(outState);
-        outState.putBoolean("isPaused", internalAdapter.isPaused());
     }
 
     @Override
@@ -168,57 +177,50 @@ public class MainActivity extends AppCompatActivity {
         //audioManager.unregisterMediaButtonEventReceiver(audioManagerReceiver);
         super.onDestroy();
         //unregisterReceiver(onDownloadComplete);
+
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            notificationManager.cancelAll();
+        }
+
+        unregisterReceiver(broadcastReceiver);
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if(keyCode == KeyEvent.KEYCODE_HEADSETHOOK){
+            Play();
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    private void createChannel(){
+
+        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    PlayerNotification.CHANNEL_ID,
+                    "Test",
+                    NotificationManager.IMPORTANCE_LOW
+            );
+
+            notificationManager = getSystemService(NotificationManager.class);
+            if(notificationManager != null){
+                notificationManager.createNotificationChannel(channel);
+            }
+
+            registerReceiver(broadcastReceiver, new IntentFilter("TRACKS_TRACK"));
+            startService(new Intent(getBaseContext(), OnClearFormRecentService.class));
+
+        }
     }
 
     private void SetButtons(){
 
-        imageViewPlay.setOnClickListener(v -> {
-
-            if(internalAdapter.getItemCount() < 1){
-                return;
-            }
-
-            if(!internalAdapter.isPaused()){
-                SetPlay(false);
-                return;
-            }
-
-            SetPlay(true);
-        });
+        imageViewPlay.setOnClickListener(v -> Play());
 
         imageViewNext.setOnClickListener(v -> Next());
 
-        imageViewPrevious.setOnClickListener(v -> {
-            if(internalAdapter.getItemCount() < 1){
-                return;
-            }
-            mediaPlayer.stop();
-
-            if(currentTime > 5000){
-                if(!internalAdapter.isPaused()) {
-                    SetMusic(0);
-                    SetPlay(true);
-                }
-                return;
-            }
-
-            if(internalAdapter.getFilePosition(selectedFileName) <= 0) {
-                internalAdapter.setSelectedFileName(
-                        internalAdapter.getFile(
-                                internalAdapter.getItemCount()
-                        ).getName()
-                );
-
-                //internalAdapter.setSelectedFileByPosition(internalAdapter.getItemCount() - 1);
-                SetMusic(0);
-            }else{
-                SetMusic(-1);
-            }
-
-            if(!internalAdapter.isPaused()) {
-                SetPlay(true);
-            }
-        });
+        imageViewPrevious.setOnClickListener(v -> Previous());
 
         imageViewRepeat.setOnClickListener(v -> {
 
@@ -244,24 +246,19 @@ public class MainActivity extends AppCompatActivity {
         });
 
         imageViewShuffle.setOnClickListener(v -> {
-            Handler.ShowSnack("Indisponível", "Função indisponível, pois causa problemas pra identificar qual musica está sendo executada na playlist", this, R_ID);
-            //Shuffle();
-            //SavePreferences();
+            //Handler.ShowSnack("Indisponível", "Função indisponível, pois causa problemas pra identificar qual musica está sendo executada na playlist", this, R_ID);
+            Shuffle();
+            SavePreferences();
         });
 
-        imageViewInternalMusicList.setOnClickListener(v -> {
-            DialogInternalMusicList();
-        });
+        imageViewInternalMusicList.setOnClickListener(v -> DialogInternalMusicList());
 
         imageViewExternalMusicList.setOnClickListener(v -> {
             GetInternalMusicList();
             GetExternalMusicList();
         });
 
-        imageViewFavorite.setOnClickListener(v -> {
-            Handler.ShowSnack("Implementando...", "Cria uma lista local na aplicação, mas ainda não pode ser executada", this, R_ID);
-            setFavorite();
-        });
+        imageViewFavorite.setOnClickListener(v -> setFavorite());
 
         seekbar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
@@ -281,6 +278,119 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private void Play(){
+        if(internalAdapter.getItemCount() < 1){
+            return;
+        }
+
+        mediaPlayer.seekTo((int)currentTime);
+        if(mediaPlayer.isPlaying()){
+            SetPlay(false);
+            return;
+        }
+
+        SetPlay(true);
+    }
+
+    private void Previous(){
+        if(internalAdapter.getItemCount() < 1){
+            return;
+        }
+        boolean isPlaying = mediaPlayer.isPlaying();
+        mediaPlayer.stop();
+
+        if(currentTime > 5000){
+            if(mediaPlayer.isPlaying()) {
+                SetMusic(0);
+                SetPlay(true);
+            }
+            return;
+        }
+
+        int filePosition = internalAdapter.getFilePosition(selectedFileName);
+        if(filePosition <= 0) {
+            selectedFileName = internalAdapter.getFile(internalAdapter.getItemCount()-1).getName();
+            SetMusic(0);
+        }else{
+            SetMusic(-1);
+        }
+
+        if(isPlaying) {
+            SetPlay(true);
+        }
+    }
+
+    private void Next(){
+        if(internalAdapter.getItemCount() < 1){
+            return;
+        }
+        boolean isPlaying = mediaPlayer.isPlaying();
+        mediaPlayer.stop();
+
+        if(internalAdapter.getFilePosition(selectedFileName) >= internalAdapter.getItemCount()-1){
+            selectedFileName = internalAdapter.getFile(0).getName();
+            SetMusic(0);
+        }else {
+            SetMusic(1);
+        }
+        if(isPlaying) {
+            SetPlay(true);
+        }
+    }
+
+    private void SetPlay(boolean isPlay){
+        if(isPlay){
+            imageViewPlay.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_pause,getTheme()));
+            //imageViewPlay.setImageDrawable(getResources().getDrawable(R.drawable.ic_pause));
+            mediaPlayer.start();
+        }else{
+            imageViewPlay.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_play_arrow,getTheme()));
+            //imageViewPlay.setImageDrawable(getResources().getDrawable(R.drawable.ic_play_arrow));
+            mediaPlayer.pause();
+        }
+
+        PlayerNotification.createNotification(this);
+    }
+
+    private void SetMusic(int plus){
+        try {
+            if (internalAdapter.getItemCount() < 1) {
+                Handler.ShowSnack("Você ainda não baixou MP3", null, MainActivity.this, R_ID);
+            }
+
+            int newPosition = internalAdapter.getFilePosition(selectedFileName) + plus;
+
+            if (newPosition > internalAdapter.getItemCount() - 1 || newPosition < 0) {
+                return;
+            }
+
+            selectedFileName = internalAdapter.getFile(newPosition).getName();
+
+            if (internalAdapter.getFile(newPosition).exists()) {
+                mediaPlayer = new MediaPlayer();
+                mediaPlayer = MediaPlayer.create(this, Uri.parse(internalAdapter.getFile(newPosition).getAbsolutePath()));
+
+                finalTime = mediaPlayer.getDuration();
+                String Minutes = String.valueOf(TimeUnit.MILLISECONDS.toMinutes((long) finalTime));
+                String Seconds = String.valueOf(TimeUnit.MILLISECONDS.toSeconds((long) finalTime)
+                        - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes((long) finalTime)));
+                if(Seconds.length() < 2){
+                    Seconds = "0"+Seconds;
+                }
+                textViewTotalTime.setText(String.format("%s:%s", Minutes, Seconds));
+
+                GetMusicInfo(internalAdapter.getFile(newPosition).getAbsolutePath());
+
+                myHandler.postDelayed(UpdateSongTime,100);
+            }
+
+            SavePreferences();
+            getFavorite();
+        }catch (Exception e){
+            Handler.ShowSnack("Houve um erro","MainActivity.SetMusic: " + e.getMessage(), MainActivity.this, R_ID);
+        }
+    }
+
     private void SetRecyclerView(boolean isExternal){
         try {
             recyclerViewMusicList.addOnItemTouchListener(new RecyclerItemClickListener(
@@ -291,7 +401,7 @@ public class MainActivity extends AppCompatActivity {
                     if(!isExternal) {
                         mediaPlayer.stop();
                         selectedFileName = internalAdapter.getFile(position).getName();
-                        internalAdapter.setSelectedFileName(selectedFileName);
+                        internalAdapter.notifyDataSetChanged();
                         SetMusic(0);
                         SetPlay(true);
                     }else{
@@ -303,19 +413,10 @@ public class MainActivity extends AppCompatActivity {
                         );
 
                         if(file.exists()) {
-                            /*int newPosition = -1;
-                            for (int i = 0; i < internalAdapter.getItemCount(); i++) {
-                                String filename = internalAdapter.getFile(i).getName();
-                                if(filename.equalsIgnoreCase(file.getName())){
-                                    newPosition = i;
-                                    i = internalAdapter.getItemCount();
-                                }
-                            }
-                            if(newPosition == -1) return;*/
                             mediaPlayer.stop();
 
                             selectedFileName = file.getName();
-                            internalAdapter.setSelectedFileName(selectedFileName);
+                            //internalAdapter.setSelectedFileName(selectedFileName);
                             externalAdapter.setSelectedFileName(selectedFileName);
 
                             /*internalAdapter.setSelectedFileName(internalAdapter.getFile(newPosition).getName());
@@ -329,7 +430,6 @@ public class MainActivity extends AppCompatActivity {
                         if(externalAdapter == null) return;
                         StreamPlay(externalAdapter.getFileName(position));
                         SetPlay(true);
-                        internalAdapter.setPaused(true);
                         GetExternalMusicInfo(position);
                         externalAdapter.setSelectedFileName(externalAdapter.getFileName(position));
                     }
@@ -348,8 +448,8 @@ public class MainActivity extends AppCompatActivity {
     private void SetInternalSearchView(){
         DisplayMetrics displayMetrics = new DisplayMetrics();
         getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
-        int width = displayMetrics.widthPixels;
-        searchView.setMaxWidth(width-150);
+        //int width = displayMetrics.widthPixels;
+        //searchView.setMaxWidth(width-150);
 
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
@@ -410,8 +510,6 @@ public class MainActivity extends AppCompatActivity {
             Collections.addAll(files, fileList);
 
             internalAdapter = new InternalMusicListAdapter(files, this, R_ID);
-            internalAdapter.setSelectedFileName(selectedFileName);
-            internalAdapter.setPaused(!mediaPlayer.isPlaying());
 
             //assert fileList != null;
             //Arrays.sort(files);
@@ -474,16 +572,27 @@ public class MainActivity extends AppCompatActivity {
         try {
             byte[] art = mediaMetadataRetriever.getEmbeddedPicture();
             assert art != null;
-            Bitmap songImage = BitmapFactory.decodeByteArray(art, 0, art.length);
-            imageViewArt.setImageBitmap(songImage);
+            Bitmap artImage = BitmapFactory.decodeByteArray(art, 0, art.length);
+            imageViewArt.setImageBitmap(artImage);
             textViewArtistName.setText(mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST));
             textViewMusicName.setText(mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE));
+
+            musicInfo = new JsonObject();
+            musicInfo.addProperty("artist", mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST));
+            musicInfo.addProperty("title", mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE));
+            String artString = Handler.ImageEncode(artImage);
+            musicInfo.addProperty("art", artString);
         } catch (Exception e) {
             imageViewArt.setImageBitmap(null);
             String unknown = "Arquivo sem informações";
             String filename = source.replace(path,"").replace("/","").replace(".mp3","").replace(" - ","\n");
             textViewArtistName.setText(filename);
             textViewMusicName.setText(unknown);
+
+            musicInfo = new JsonObject();
+            musicInfo.addProperty("artist", filename);
+            musicInfo.addProperty("title", unknown);
+            //jsonObject.addProperty("art", Arrays.toString(art));
         }
     }
 
@@ -492,65 +601,13 @@ public class MainActivity extends AppCompatActivity {
         //imageViewArt.setImageBitmap(songImage);
         textViewArtistName.setText(jsonObject.get("artist").getAsString());
         textViewMusicName.setText(jsonObject.get("title").getAsString());
-        imageViewArt.setImageDrawable(getResources().getDrawable(R.drawable.download));
+
+        imageViewArt.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.download,getTheme()));
+        //imageViewArt.setImageDrawable(getResources().getDrawable(R.drawable.download));
 
         if(jsonObject.has("art")){
             imageViewArt.setImageBitmap(Handler.ImageDecode(jsonObject.get("art").getAsString()));
         }
-    }
-
-    private void SetMusic(int plus){
-        try {
-            if (internalAdapter.getItemCount() < 1) {
-                Handler.ShowSnack("Você ainda não baixou MP3", null, MainActivity.this, R_ID);
-            }
-
-            int newPosition = internalAdapter.getFilePosition(selectedFileName) + plus;
-
-            if (newPosition > internalAdapter.getItemCount() - 1 || newPosition < 0) {
-                return;
-            }
-
-            selectedFileName = internalAdapter.getFile(newPosition).getName();
-
-            internalAdapter.setSelectedFileName(selectedFileName);
-            //internalAdapter.setSelectedFileName(internalAdapter.getFile(newPosition).getName());
-
-            if (internalAdapter.getFile(newPosition).exists()) {
-                mediaPlayer = MediaPlayer.create(this, Uri.parse(internalAdapter.getFile(newPosition).getAbsolutePath()));
-                GetMusicInfo(internalAdapter.getFile(newPosition).getAbsolutePath());
-
-                myHandler.postDelayed(UpdateSongTime,100);
-            }
-
-            SavePreferences();
-            getFavorite();
-        }catch (Exception e){
-            Toast.makeText(this, e.getMessage(), Toast.LENGTH_LONG).show();
-        }
-    }
-
-    private void Next(){
-        if(internalAdapter.getItemCount() < 1){
-            return;
-        }
-        mediaPlayer.stop();
-
-        if(internalAdapter.getFilePosition(selectedFileName) >= internalAdapter.getItemCount()-1){
-            selectedFileName = internalAdapter.getFile(0).getName();
-            //internalAdapter.setSelectedFileName(selectedFileName);
-            SetMusic(0);
-        }else {
-            SetMusic(1);
-        }
-        if(!internalAdapter.isPaused()) {
-            SetPlay(true);
-        }
-
-        /*if(adapter != null) {
-            adapter.setSelectedFile(selectedFile);
-            adapter.notifyDataSetChanged();
-        }*/
     }
 
     private void DialogInternalMusicList(){
@@ -566,6 +623,8 @@ public class MainActivity extends AppCompatActivity {
             recyclerViewMusicList = dialogMusicList.findViewById(R.id.dialogInternalMusic_RecyclerView);
             swipeRefresh = dialogMusicList.findViewById(R.id.dialogInternalMusic_SwipeRefresh);
             searchView = dialogMusicList.findViewById(R.id.dialogInternalMusic_SearchView);
+            ImageView imageViewList = dialogMusicList.findViewById(R.id.dialogInternalMusic_ImageViewList);
+            ImageView imageViewFavorite = dialogMusicList.findViewById(R.id.dialogInternalMusic_ImageViewFavorite);
 
             RecyclerView.LayoutManager layoutManager;
             recyclerViewMusicList.setHasFixedSize(true);
@@ -577,6 +636,21 @@ public class MainActivity extends AppCompatActivity {
             swipeRefresh.setOnRefreshListener(this::SwipeRefreshAction);
 
             recyclerViewMusicList.setAdapter(internalAdapter);
+
+            if(favoriteList.size()<1){
+                imageViewFavorite.setAlpha(0.6f);
+            }
+
+            imageViewFavorite.setOnClickListener(v->{
+                if(favoriteList.size()<1)return;
+                internalAdapter = new InternalMusicListAdapter(favoriteList,this, R_ID);
+                recyclerViewMusicList.setAdapter(internalAdapter);
+            });
+
+            imageViewList.setOnClickListener(v->{
+                GetInternalMusicList();
+                recyclerViewMusicList.setAdapter(internalAdapter);
+            });
 
             dialogMusicList.create();
             dialogMusicList.show();
@@ -619,25 +693,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void SwipeRefreshAction(){
-        boolean isPause = internalAdapter.isPaused();
         GetInternalMusicList();
         Shuffle();
-        internalAdapter.setSelectedFileName(selectedFileName);
-        internalAdapter.setPaused(isPause);
         recyclerViewMusicList.setAdapter(internalAdapter);
         swipeRefresh.setRefreshing(false);
-    }
-
-    private void SetPlay(boolean isPlay){
-        if(isPlay){
-            imageViewPlay.setImageDrawable(getResources().getDrawable(R.drawable.ic_pause));
-            mediaPlayer.start();
-            internalAdapter.setPaused(false);
-        }else{
-            imageViewPlay.setImageDrawable(getResources().getDrawable(R.drawable.ic_play_arrow));
-            mediaPlayer.pause();
-            internalAdapter.setPaused(true);
-        }
     }
 
     private void StreamPlay(String song){
@@ -655,9 +714,6 @@ public class MainActivity extends AppCompatActivity {
         } catch (Exception e) {
             Handler.ShowSnack("Houve um erro","MainActivity.StreamPlay: " + e.getMessage(), MainActivity.this, R_ID);
         }
-
-        //String url = ApiClient.BASE_URL+song;
-
     }
 
     private void SavePreferences(){
@@ -685,50 +741,88 @@ public class MainActivity extends AppCompatActivity {
             textViewOneOrALL.setText(repeat);
         }
 
-        if(shuffle){
+        if(!shuffle){
             imageViewShuffleCheck.setVisibility(View.VISIBLE);
         }
 
         selectedFileName = settings.getString("selectedFileName","");
+
+        JsonParser parser = new JsonParser();
+        JsonArray jsonArray;
+        String favorite = settings.getString("favorite","");
+        if(favorite.equals("")) return;
+        jsonArray = (JsonArray) parser.parse(settings.getString("favorite",""));
+        String path = Objects.requireNonNull(getExternalFilesDir(Environment.DIRECTORY_MUSIC)).getPath();
+        for (JsonElement jsonElement: jsonArray){
+            File file = new File(path,jsonElement.getAsJsonObject().get("file").getAsString());
+            favoriteList.add(file);
+        }
+
     }
 
     private void getFavorite(){
-        boolean isFavorite = false;
-        for (int i = 0; i < arrayList.size(); i++) {
-            if(arrayList.get(i).equals(selectedFileName)){
-                isFavorite = true;
+        try {
+            boolean isFavorite = false;
+            for (int i = 0; i < favoriteList.size(); i++) {
+                if (favoriteList.get(i).getName().equals(selectedFileName)) isFavorite = true;
             }
-        }
 
-        if(!isFavorite){
-            imageViewFavorite.setImageDrawable(getResources().getDrawable(R.drawable.ic_favorite_border));
-        }else{
-            imageViewFavorite.setImageDrawable(getResources().getDrawable(R.drawable.ic_favorite));
+            if (!isFavorite) {
+                imageViewFavorite.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_favorite_border,getTheme()));
+                //imageViewFavorite.setImageDrawable(getResources().getDrawable(R.drawable.ic_favorite_border));
+            } else {
+                imageViewFavorite.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_favorite,getTheme()));
+                //imageViewFavorite.setImageDrawable(getResources().getDrawable(R.drawable.ic_favorite));
+            }
+        }catch (Exception e){
+            Handler.ShowSnack("Houve um erro","MainActivity.getFavorite: " + e.getMessage(), MainActivity.this, R_ID);
         }
     }
 
     private void setFavorite(){
-        boolean isFavorite = false;
-        for (int i = 0; i < arrayList.size(); i++) {
-            if(arrayList.get(i).equals(selectedFileName)){
-                isFavorite = true;
+        try {
+            boolean isFavorite = false;
+            for (int i = 0; i < favoriteList.size(); i++) {
+                if (favoriteList.get(i).getName().equals(selectedFileName)) isFavorite = true;
             }
-        }
 
-        if(isFavorite){
-            arrayList.remove(selectedFileName);
-            imageViewFavorite.setImageDrawable(getResources().getDrawable(R.drawable.ic_favorite_border));
-        }else{
-            arrayList.add(selectedFileName);
-            imageViewFavorite.setImageDrawable(getResources().getDrawable(R.drawable.ic_favorite));
+            int position = internalAdapter.getFilePosition(selectedFileName);
+            File file = internalAdapter.getFile(position);
+
+            if (isFavorite) {
+                favoriteList.remove(file);
+                imageViewFavorite.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_favorite_border,getTheme()));
+                //imageViewFavorite.setImageDrawable(getResources().getDrawable(R.drawable.ic_favorite_border));
+            } else {
+                favoriteList.add(file);
+                imageViewFavorite.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_favorite,getTheme()));
+                //imageViewFavorite.setImageDrawable(getResources().getDrawable(R.drawable.ic_favorite));
+            }
+
+            SharedPreferences settings = getSharedPreferences(PREFERENCES, 0);
+            SharedPreferences.Editor editor = settings.edit();
+            JsonArray jsonArray = new JsonArray();
+
+            for (File infile : favoriteList) {
+                JsonObject jsonObject = new JsonObject();
+                jsonObject.addProperty("file", infile.getName());
+                jsonArray.add(jsonObject);
+            }
+            editor.putString("favorite", jsonArray.toString());
+            editor.apply();
+        }catch (Exception e){
+            Handler.ShowSnack("Houve um erro","MainActivity.setFavorite: " + e.getMessage(), MainActivity.this, R_ID);
         }
+    }
+
+    public static boolean isPlaying(){
+        return mediaPlayer.isPlaying();
     }
 
     private final Runnable UpdateSongTime = new Runnable() {
         @SuppressLint("DefaultLocale")
         public void run() {
             currentTime = mediaPlayer.getCurrentPosition();
-            finalTime = mediaPlayer.getDuration();
 
             if(textViewOneOrALL.getText().toString().equalsIgnoreCase("1")){
                 int current = mediaPlayer.getCurrentPosition();
@@ -764,27 +858,38 @@ public class MainActivity extends AppCompatActivity {
             }
             textViewCurrentTime.setText(String.format("%s:%s", Minutes, Seconds));
 
-            Minutes = String.valueOf(TimeUnit.MILLISECONDS.toMinutes((long) finalTime));
-            Seconds = String.valueOf(TimeUnit.MILLISECONDS.toSeconds((long) finalTime)
-                    - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes((long) finalTime)));
-            if(Seconds.length() < 2){
-                Seconds = "0"+Seconds;
-            }
-            textViewTotalTime.setText(String.format("%s:%s", Minutes, Seconds));
-
-            //if (oneTimeOnly == 0) {
             seekbar.setMax((int) finalTime);
-            //oneTimeOnly = 1;
-            //}
             seekbar.setProgress((int)currentTime);
 
             if(!mediaPlayer.isPlaying()){
-                //ResourcesCompat.getDrawable(Resources.getSystem(),R.drawable.ic_play_arrow, getTheme());
-                imageViewPlay.setImageDrawable(getResources().getDrawable(R.drawable.ic_play_arrow));
+                imageViewPlay.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_play_arrow,getTheme()));
+                //imageViewPlay.setImageDrawable(getResources().getDrawable(R.drawable.ic_play_arrow));
             }
 
             myHandler.postDelayed(this, 100);
         }
     };
 
+    BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getExtras().getString("actionName");
+
+            switch (action){
+                case PlayerNotification.ACTION_PREVIOUS:
+                    Previous();
+                    PlayerNotification.createNotification(context);
+                    break;
+                case PlayerNotification.ACTION_PLAY:
+                    Play();
+                    PlayerNotification.createNotification(context);
+                    break;
+                case PlayerNotification.ACTION_NEXT:
+                    Next();
+                    PlayerNotification.createNotification(context);
+                    break;
+            }
+        }
+
+    };
 }

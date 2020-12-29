@@ -3,6 +3,7 @@ package com.example.mediaplayer;
 import android.app.Activity;
 
 import androidx.annotation.NonNull;
+import androidx.core.content.res.ResourcesCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
 import android.graphics.Bitmap;
@@ -33,9 +34,6 @@ public class InternalMusicListAdapter extends RecyclerView.Adapter <InternalMusi
     private final int R_ID;
     private boolean isBindViewHolderError;
 
-    private String selectedFileName;
-    private boolean isPaused = true;
-
     public InternalMusicListAdapter(List<File> files, Activity activity, int R_ID) {
         this.files = files;
         this.filteredFiles = files;
@@ -59,13 +57,15 @@ public class InternalMusicListAdapter extends RecyclerView.Adapter <InternalMusi
             );
 
             String fileName = filteredFiles.get(position).getName();
-            if (selectedFileName.equals(fileName)){
+            if (MainActivity.selectedFileName.equals(fileName)){
                 viewHolder.imageViewPlaying.setVisibility(View.VISIBLE);
-                if (isPaused) {
-                    viewHolder.imageViewPlaying.setImageDrawable(activity.getResources().getDrawable(R.drawable.ic_pause));
+                if (!MainActivity.isPlaying()) {
+                    viewHolder.imageViewPlaying.setImageDrawable(ResourcesCompat.getDrawable(activity.getResources(),R.drawable.ic_pause,activity.getTheme()));
+                    //viewHolder.imageViewPlaying.setImageDrawable(activity.getResources().getDrawable(R.drawable.ic_pause));
                     viewHolder.gifImageView.setVisibility(View.INVISIBLE);
                 } else {
-                    viewHolder.imageViewPlaying.setImageDrawable(activity.getResources().getDrawable(R.drawable.ic_play_arrow));
+                    viewHolder.imageViewPlaying.setImageDrawable(ResourcesCompat.getDrawable(activity.getResources(),R.drawable.ic_play_arrow,activity.getTheme()));
+                    //viewHolder.imageViewPlaying.setImageDrawable(activity.getResources().getDrawable(R.drawable.ic_play_arrow));
                     viewHolder.gifImageView.setVisibility(View.VISIBLE);
                 }
             } else {
@@ -109,14 +109,6 @@ public class InternalMusicListAdapter extends RecyclerView.Adapter <InternalMusi
         return files;
     }
 
-    public boolean isPaused(){
-        return isPaused;
-    }
-
-    public void setPaused(boolean isPaused){
-        this.isPaused = isPaused;
-    }
-
     public void setShuffle(boolean isShuffle){
         if(isShuffle){
             Collections.shuffle(filteredFiles);
@@ -125,37 +117,11 @@ public class InternalMusicListAdapter extends RecyclerView.Adapter <InternalMusi
         }
     }
 
-    /*public void setSelectedFileByPosition(int position){
-        selectedFileName = filteredFiles.get(position);
-        notifyDataSetChanged();
-    }*/
-
-    /*public void setSelectedFile(File file){
-        selectedFile = file;
-    }*/
-
-    /*public String getSelectedFile(){
-        return selectedFileName;
-    }*/
-
     public int getFilePosition(String fileName){
         for (int i = 0; i < filteredFiles.size(); i++) {
             if(fileName.equals(filteredFiles.get(i).getName())) return i;
         }
         return -1;
-    }
-
-    /*public void setSelectedFileByName(String fileName){
-        for (File file:files){
-            if(file.getName().equals(fileName)){
-                selectedFile = file;
-            }
-        }
-    }*/
-
-    public void setSelectedFileName(String fileName){
-        selectedFileName = fileName;
-        notifyDataSetChanged();
     }
 
     public Filter getFilter() {
@@ -176,7 +142,6 @@ public class InternalMusicListAdapter extends RecyclerView.Adapter <InternalMusi
                     try {
 
                         while (i < files.size()) {
-                            files.get(i).getName().toLowerCase();
                             String A = files.get(i).getName().toLowerCase();
                             String B = charSequence.toString().toLowerCase();
                             if (A.contains(B)) {

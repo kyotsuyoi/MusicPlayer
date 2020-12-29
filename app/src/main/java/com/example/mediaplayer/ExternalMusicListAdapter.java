@@ -15,6 +15,7 @@ import android.view.ViewGroup;
 import android.widget.Filter;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
@@ -52,6 +53,8 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
     private String selectedFileName;
 
     private long downloadID;
+
+    private boolean isDownloading = false;
 
     public ExternalMusicListAdapter(List<File> files, JsonArray data, Activity activity, int R_ID) {
         this.data = data;
@@ -95,11 +98,16 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
             viewHolder.textViewArtistName.setText(artist);
             viewHolder.textViewMusicName.setText(title);
 
-            GetMusicArt(viewHolder.imageViewArt, filename,position);
+            GetMusicArt(viewHolder.imageViewArt, filename, position);
 
             viewHolder.imageViewDownload.setOnClickListener(v->{
+                if(isDownloading){
+                    Toast.makeText(activity,"Multidownload temporariamente desativado",Toast.LENGTH_LONG).show();
+                    return;
+                }
                 File file = new File(Objects.requireNonNull(activity.getExternalFilesDir(Environment.DIRECTORY_MUSIC)).getAbsolutePath(),filename);
                 if(!file.exists()) {
+                    isDownloading = true;
                     beginDownload(filename);
                 }
             });
@@ -181,7 +189,12 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
     }
 
     public String getFileName(int position){
-        return filteredData.get(position).getAsJsonObject().get("filename").getAsString();
+        try {
+            return filteredData.get(position).getAsJsonObject().get("filename").getAsString();
+        }catch (Exception e){
+            Handler.ShowSnack("Houve um erro", "ExternalMusicListAdapter.getFileName: " + e.getMessage(), activity, R_ID);
+            return "Unknown";
+        }
     }
 
     public void setSelectedFileName(String filename){
@@ -239,15 +252,6 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
         };
     }
 
-    /*public void findSelected(String fileName){
-        for (int i = 0; i < filteredData.size(); i++) {
-            JsonObject jsonObject = filteredData.get(i).getAsJsonObject();
-            if(fileName.equalsIgnoreCase(jsonObject.get("filename").getAsString())){
-                selectedFile = i;
-            }
-        }
-    }*/
-
     @RequiresApi(api = Build.VERSION_CODES.N)
     private void beginDownload(String filename){
         File file = new File(Objects.requireNonNull(activity.getExternalFilesDir(Environment.DIRECTORY_MUSIC)).getAbsolutePath(),filename);
@@ -273,6 +277,7 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
                 GetInternalMusicList();
                 notifyDataSetChanged();
             }
+            isDownloading=false;
         }
     };
 
