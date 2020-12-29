@@ -13,6 +13,8 @@ import androidx.core.app.NotificationManagerCompat;
 
 import com.example.mediaplayer.MainActivity;
 import com.example.mediaplayer.R;
+import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
 
 public class PlayerNotification {
 
@@ -34,7 +36,17 @@ public class PlayerNotification {
             NotificationManagerCompat notificationManagerCompat = NotificationManagerCompat.from(context);
             MediaSessionCompat mediaSessionCompat = new MediaSessionCompat(context, "tag");
 
-            Bitmap art = Handler.ImageDecode(MainActivity.musicInfo.get("art").getAsString());
+            Bitmap art = null;
+            JsonObject musicInfo = MainActivity.musicInfo;
+            if(musicInfo == null){
+                musicInfo = new JsonObject();
+                musicInfo.addProperty("title", "Desconhecido");
+                musicInfo.addProperty("artist", "Desconhecido");
+            }else{
+                if(MainActivity.musicInfo.has("art")) {
+                    art = Handler.ImageDecode(MainActivity.musicInfo.get("art").getAsString());
+                }
+            }
 
             int play = R.drawable.ic_play_arrow_10dp;
             if(MainActivity.isPlaying()){
@@ -60,8 +72,8 @@ public class PlayerNotification {
 
             notification = new NotificationCompat.Builder(context, CHANNEL_ID)
                     .setSmallIcon(R.drawable.icon)
-                    .setContentTitle(MainActivity.musicInfo.get("title").getAsString())
-                    .setContentText(MainActivity.musicInfo.get("artist").getAsString())
+                    .setContentTitle(musicInfo.get("title").getAsString())
+                    .setContentText(musicInfo.get("artist").getAsString())
                     .setLargeIcon(art)
                     .setOnlyAlertOnce(true)
                     .setShowWhen(false)

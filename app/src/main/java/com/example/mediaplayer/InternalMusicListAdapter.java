@@ -124,7 +124,8 @@ public class InternalMusicListAdapter extends RecyclerView.Adapter <InternalMusi
         return -1;
     }
 
-    public Filter getFilter() {
+    public Filter getFilter()
+    {
         return new Filter()
         {
             protected FilterResults performFiltering(CharSequence charSequence)

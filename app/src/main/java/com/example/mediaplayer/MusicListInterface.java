@@ -14,4 +14,10 @@ public interface MusicListInterface {
     Call<JsonObject> GetMusicArt(
             @Query("filename") String filename
     );
+
+    @GET("MusicList.php")
+    Call<JsonObject> GetFullMusicArt(
+            @Query("filename") String filename,
+            @Query("fullsize") boolean fullsize
+    );
 }

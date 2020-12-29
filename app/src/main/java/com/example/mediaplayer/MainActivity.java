@@ -47,6 +47,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.io.File;
+import java.nio.channels.SelectableChannel;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -279,17 +280,23 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void Play(){
-        if(internalAdapter.getItemCount() < 1){
-            return;
-        }
+        try {
+            /*if(internalAdapter.getItemCount() < 1){
+                return;
+            }*/
 
-        mediaPlayer.seekTo((int)currentTime);
-        if(mediaPlayer.isPlaying()){
-            SetPlay(false);
-            return;
-        }
+            if(mediaPlayer.getDuration() == 0) return;
 
-        SetPlay(true);
+            mediaPlayer.seekTo((int) currentTime);
+            if (mediaPlayer.isPlaying()) {
+                SetPlay(false);
+                return;
+            }
+
+            SetPlay(true);
+        }catch (Exception e){
+            Handler.ShowSnack("Houve um erro","MainActivity.Play: " + e.getMessage(), MainActivity.this, R_ID);
+        }
     }
 
     private void Previous(){
@@ -339,17 +346,19 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void SetPlay(boolean isPlay){
-        if(isPlay){
-            imageViewPlay.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_pause,getTheme()));
-            //imageViewPlay.setImageDrawable(getResources().getDrawable(R.drawable.ic_pause));
-            mediaPlayer.start();
-        }else{
-            imageViewPlay.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_play_arrow,getTheme()));
-            //imageViewPlay.setImageDrawable(getResources().getDrawable(R.drawable.ic_play_arrow));
-            mediaPlayer.pause();
-        }
+        try {
+            if (isPlay) {
+                imageViewPlay.setImageDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_pause, getTheme()));
+                mediaPlayer.start();
+            } else {
+                imageViewPlay.setImageDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_play_arrow, getTheme()));
+                mediaPlayer.pause();
+            }
 
-        PlayerNotification.createNotification(this);
+            PlayerNotification.createNotification(this);
+        }catch (Exception e){
+            Handler.ShowSnack("Houve um erro","MainActivity.SetPlay: " + e.getMessage(), MainActivity.this, R_ID);
+        }
     }
 
     private void SetMusic(int plus){
@@ -398,40 +407,41 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onItemClick(View view, int position) {
 
-                    if(!isExternal) {
-                        mediaPlayer.stop();
-                        selectedFileName = internalAdapter.getFile(position).getName();
-                        internalAdapter.notifyDataSetChanged();
-                        SetMusic(0);
-                        SetPlay(true);
-                    }else{
-                        if(externalAdapter.getFileName(position).equals(externalAdapter.getSelectedFileName())) return;
-
-                        File file = new File(
-                                Objects.requireNonNull(getExternalFilesDir(Environment.DIRECTORY_MUSIC)).getAbsolutePath(),
-                                externalAdapter.getDataInfo(position).getAsJsonObject().get("filename").getAsString()
-                        );
-
-                        if(file.exists()) {
+                    try {
+                        if (!isExternal) {
                             mediaPlayer.stop();
-
-                            selectedFileName = file.getName();
-                            //internalAdapter.setSelectedFileName(selectedFileName);
-                            externalAdapter.setSelectedFileName(selectedFileName);
-
-                            /*internalAdapter.setSelectedFileName(internalAdapter.getFile(newPosition).getName());
-                            externalAdapter.setSelectedFileName(externalAdapter.getFileName(position));*/
-
+                            selectedFileName = internalAdapter.getFile(position).getName();
+                            internalAdapter.notifyDataSetChanged();
                             SetMusic(0);
                             SetPlay(true);
-                            return;
-                        }
+                        } else {
+                            if (externalAdapter.getFileName(position).equals(selectedFileName))
+                                return;
 
-                        if(externalAdapter == null) return;
-                        StreamPlay(externalAdapter.getFileName(position));
-                        SetPlay(true);
-                        GetExternalMusicInfo(position);
-                        externalAdapter.setSelectedFileName(externalAdapter.getFileName(position));
+                            File file = new File(
+                                    Objects.requireNonNull(getExternalFilesDir(Environment.DIRECTORY_MUSIC)).getAbsolutePath(),
+                                    externalAdapter.getDataInfo(position).getAsJsonObject().get("filename").getAsString()
+                            );
+
+                            if (file.exists()) {
+                                mediaPlayer.stop();
+                                selectedFileName = file.getName();
+                                SetMusic(0);
+                                SetPlay(true);
+                                externalAdapter.notifyDataSetChanged();
+                                return;
+                            }
+
+                            imageViewFavorite.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_favorite_border,getTheme()));
+                            if (externalAdapter == null) return;
+                            GetExternalMusicInfo(position);
+                            StreamPlay(externalAdapter.getFileName(position));
+                            SetPlay(true);
+                            selectedFileName = externalAdapter.getFileName(position);
+                            externalAdapter.notifyDataSetChanged();
+                        }
+                    }catch (Exception e){
+                        Handler.ShowSnack("Houve um erro","MainActivity.SetRecyclerView.onItemClick: " + e.getMessage(), MainActivity.this, R_ID);
                     }
                 }
 
@@ -597,16 +607,26 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void GetExternalMusicInfo(int position){
-        JsonObject jsonObject = externalAdapter.getDataInfo(position);
-        //imageViewArt.setImageBitmap(songImage);
-        textViewArtistName.setText(jsonObject.get("artist").getAsString());
-        textViewMusicName.setText(jsonObject.get("title").getAsString());
+        try {
+            JsonObject jsonObject = externalAdapter.getDataInfo(position);
+            textViewArtistName.setText(jsonObject.get("artist").getAsString());
+            textViewMusicName.setText(jsonObject.get("title").getAsString());
 
-        imageViewArt.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.download,getTheme()));
-        //imageViewArt.setImageDrawable(getResources().getDrawable(R.drawable.download));
+            imageViewArt.setImageDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.download, getTheme()));
 
-        if(jsonObject.has("art")){
-            imageViewArt.setImageBitmap(Handler.ImageDecode(jsonObject.get("art").getAsString()));
+            musicInfo = new JsonObject();
+            musicInfo.addProperty("artist", jsonObject.get("artist").getAsString());
+            musicInfo.addProperty("title", jsonObject.get("title").getAsString());
+
+            /*if (jsonObject.has("art")) {
+                imageViewArt.setImageBitmap(Handler.ImageDecode(jsonObject.get("art").getAsString()));
+                musicInfo.addProperty("art", jsonObject.get("art").getAsString());
+            } else {
+                imageViewArt.setImageBitmap(null);
+            }*/
+            GetExternalMusicArt(jsonObject.get("filename").getAsString());
+        }catch (Exception e){
+            Handler.ShowSnack("Houve um erro","MainActivity.GetExternalMusicInfo: " + e.getMessage(), MainActivity.this, R_ID);
         }
     }
 
@@ -677,7 +697,7 @@ public class MainActivity extends AppCompatActivity {
             recyclerViewMusicList.setLayoutManager(layoutManager);
 
             externalAdapter = new ExternalMusicListAdapter(internalAdapter.getFiles(), data, this, R.id.activityMain_ImageView_Play);
-            externalAdapter.setSelectedFileName(selectedFileName);
+            //externalAdapter.setSelectedFileName(selectedFileName);
 
             recyclerViewMusicList.setAdapter(externalAdapter);
 
@@ -710,7 +730,18 @@ public class MainActivity extends AppCompatActivity {
             mediaPlayer.setDataSource(url);
             mediaPlayer.prepare();
             finalTime = mediaPlayer.getDuration();
-            mediaPlayer.start();
+
+            finalTime = mediaPlayer.getDuration();
+            String Minutes = String.valueOf(TimeUnit.MILLISECONDS.toMinutes((long) finalTime));
+            String Seconds = String.valueOf(TimeUnit.MILLISECONDS.toSeconds((long) finalTime)
+                    - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes((long) finalTime)));
+            if(Seconds.length() < 2){
+                Seconds = "0"+Seconds;
+            }
+            textViewTotalTime.setText(String.format("%s:%s", Minutes, Seconds));
+
+            myHandler.postDelayed(UpdateSongTime,100);
+            //mediaPlayer.start();
         } catch (Exception e) {
             Handler.ShowSnack("Houve um erro","MainActivity.StreamPlay: " + e.getMessage(), MainActivity.this, R_ID);
         }
@@ -817,6 +848,40 @@ public class MainActivity extends AppCompatActivity {
 
     public static boolean isPlaying(){
         return mediaPlayer.isPlaying();
+    }
+
+    private void GetExternalMusicArt(String filename){
+        try {
+            Call<JsonObject> call = musicListInterface.GetFullMusicArt(filename,true);
+            call.enqueue(new Callback<JsonObject>() {
+                @Override
+                public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
+                    try {
+                        if (!Handler.isRequestError(response, MainActivity.this, R_ID)){
+                            JsonObject jsonObject = response.body();
+                            assert jsonObject != null;
+                            JsonArray jsonArray = jsonObject.get("data").getAsJsonArray();
+
+                            imageViewArt.setImageBitmap(Handler.ImageDecode(jsonArray.get(0).getAsJsonObject().get("art").getAsString()));
+                            musicInfo.addProperty("art", jsonArray.get(0).getAsJsonObject().get("art").getAsString());
+                            PlayerNotification.createNotification(MainActivity.this);
+                        }else{
+                            imageViewArt.setImageBitmap(null);
+                        }
+                    }catch (Exception e){
+                        Handler.ShowSnack("Houve um erro","MainActivity.GetExternalMusicArt.onResponse: " + e.getMessage(), MainActivity.this, R_ID);
+                    }
+                }
+
+                @Override
+                public void onFailure(@NonNull Call<JsonObject> call, @NonNull Throwable t) {
+                    Handler.ShowSnack("Houve um erro","MainActivity.GetExternalMusicArt.onFailure: " + t.toString(), MainActivity.this, R_ID);
+                }
+            });
+
+        }catch (Exception e){
+            Handler.ShowSnack("Houve um erro","MainActivity.GetExternalMusicArt: " + e.getMessage(), MainActivity.this, R_ID);
+        }
     }
 
     private final Runnable UpdateSongTime = new Runnable() {

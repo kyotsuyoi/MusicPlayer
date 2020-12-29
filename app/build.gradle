@@ -8,8 +8,8 @@ android {
         applicationId "com.example.mediaplayer"
         minSdkVersion 21
         targetSdkVersion 30
-        versionCode 3
-        versionName "0.62-alpha"
+        versionCode 4
+        versionName "0.63.1-alpha"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

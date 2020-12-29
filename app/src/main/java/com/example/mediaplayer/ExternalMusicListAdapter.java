@@ -23,6 +23,8 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.mediaplayer.CommonClasses.ApiClient;
 import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 
 import java.io.File;
@@ -50,8 +52,6 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
     private final JsonArray data;
     private JsonArray filteredData;
 
-    private String selectedFileName;
-
     private long downloadID;
 
     private boolean isDownloading = false;
@@ -74,9 +74,26 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
     @RequiresApi(api = Build.VERSION_CODES.N)
     public void onBindViewHolder(@NonNull ViewHolder viewHolder, int position) {
         try {
+            viewHolder.imageViewArt.setImageDrawable(null);
+            viewHolder.textViewMusicName.setText("");
+            viewHolder.textViewArtistName.setText("");
+
             String filename = filteredData.get(position).getAsJsonObject().get("filename").getAsString();
-            String title = filteredData.get(position).getAsJsonObject().get("title").getAsString();
-            String artist = filteredData.get(position).getAsJsonObject().get("artist").getAsString();
+            String title = null;
+            String artist = null;
+
+            if(filteredData.get(position).getAsJsonObject().get("title") != JsonNull.INSTANCE){
+                title = filteredData.get(position).getAsJsonObject().get("title").getAsString();
+            }
+
+            if(filteredData.get(position).getAsJsonObject().get("artist") != JsonNull.INSTANCE){
+                artist = filteredData.get(position).getAsJsonObject().get("artist").getAsString();
+            }
+
+            if(title == null && artist == null){
+                title = "Arquivo sem informações";
+                artist = filename;
+            }
 
             viewHolder.imageViewDownload.setVisibility(View.VISIBLE);
             if(files!=null) {
@@ -91,14 +108,14 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
 
             viewHolder.gifImageView.setVisibility(View.INVISIBLE);
             String fileName = filteredData.get(position).getAsJsonObject().get("filename").getAsString();
-            if(selectedFileName.equals(fileName)){
+            if(MainActivity.selectedFileName.equals(fileName)){
                 viewHolder.gifImageView.setVisibility(View.VISIBLE);
             }
 
             viewHolder.textViewArtistName.setText(artist);
             viewHolder.textViewMusicName.setText(title);
 
-            GetMusicArt(viewHolder.imageViewArt, filename, position);
+            GetMusicArt(viewHolder.imageViewArt, filename/*, position*/);
 
             viewHolder.imageViewDownload.setOnClickListener(v->{
                 if(isDownloading){
@@ -147,14 +164,25 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
         return filteredData.get(position).getAsJsonObject();
     }
 
-    private void GetMusicArt(ImageView imageView, String filename, int position){
+    private void GetMusicArt(ImageView imageView, String filename/*, int position*/){
         try {
-            if(filteredData.get(position).getAsJsonObject().has("art")){
-                imageView.setImageBitmap(Handler.ImageDecode(filteredData.get(position).getAsJsonObject().get("art").getAsString()));
-                return;
+
+            /*int pos = -1;
+            for (int i = 0; i < data.size(); i++) {
+                String thisFilename = data.get(i).getAsJsonObject().get("filename").getAsString();
+                if(thisFilename.equals(filename)){
+                    pos = i;
+                    i = data.size();
+                }
             }
 
+            if(data.get(pos).getAsJsonObject().has("art")){
+                imageView.setImageBitmap(Handler.ImageDecode(data.get(pos).getAsJsonObject().get("art").getAsString()));
+                return;
+            }*/
+
             Call<JsonObject> call = musicListInterface.GetMusicArt(filename);
+            //int finalPos = pos;
             call.enqueue(new Callback<JsonObject>() {
                 @Override
                 public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
@@ -166,9 +194,11 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
 
                             imageView.setImageBitmap(Handler.ImageDecode(jsonArray.get(0).getAsJsonObject().get("art").getAsString()));
 
-                            JsonObject newJsonObject = data.get(position).getAsJsonObject();
+                            /*JsonObject newJsonObject = filteredData.get(position).getAsJsonObject();
                             newJsonObject.addProperty("art",jsonArray.get(0).getAsJsonObject().get("art").getAsString());
-                            data.set(position,newJsonObject);
+                            data.set(finalPos, newJsonObject);*/
+
+                            //data.get(finalPos).getAsJsonObject().addProperty("art",jsonArray.get(0).getAsJsonObject().get("art").getAsString());
                         }else{
                             imageView.setImageBitmap(null);
                         }
@@ -197,14 +227,14 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
         }
     }
 
-    public void setSelectedFileName(String filename){
+    /*public void setSelectedFileName(String filename){
         selectedFileName = filename;
         notifyDataSetChanged();
-    }
+    }*/
 
-    public String getSelectedFileName(){
+    /*public String getSelectedFileName(){
         return selectedFileName;
-    }
+    }*/
 
     public Filter getFilter() {
         return new Filter()
