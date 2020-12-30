@@ -71,7 +71,7 @@ public class PlayerNotification {
                     intentNext, PendingIntent.FLAG_UPDATE_CURRENT);
 
             notification = new NotificationCompat.Builder(context, CHANNEL_ID)
-                    .setSmallIcon(R.drawable.icon)
+                    .setSmallIcon(R.drawable.ic_launcher)
                     .setContentTitle(musicInfo.get("title").getAsString())
                     .setContentText(musicInfo.get("artist").getAsString())
                     .setLargeIcon(art)

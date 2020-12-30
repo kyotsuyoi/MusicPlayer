@@ -9,6 +9,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import android.annotation.SuppressLint;
 import android.app.Dialog;
+import android.app.DownloadManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
@@ -31,11 +32,13 @@ import android.util.DisplayMetrics;
 import android.view.KeyEvent;
 import android.view.View;
 
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.SearchView;
 import android.widget.SeekBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.example.mediaplayer.CommonClasses.ApiClient;
 import com.example.mediaplayer.CommonClasses.OnClearFormRecentService;
@@ -43,32 +46,34 @@ import com.example.mediaplayer.CommonClasses.PlayerNotification;
 import com.example.mediaplayer.CommonClasses.RecyclerItemClickListener;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
 import java.io.File;
-import java.nio.channels.SelectableChannel;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
+import at.markushi.ui.CircleButton;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String PREFERENCES = "MUSICPLAYER_PREFERENCES";
+    private static final String PREFERENCES = "ROCKLINKER_PREFERENCES";
 
-    private ImageView imageViewNext, imageViewPlay, imageViewPrevious;
+    private CircleButton buttonNext, buttonPlay, buttonPrevious;
+    private CircleButton buttonFavorite, buttonExternalMusicList, buttonInternalMusicList;
+    private CircleButton buttonShuffle, buttonRepeat;
     private ImageView imageViewArt;
     private static MediaPlayer mediaPlayer;
 
-    private ImageView imageViewShuffle, imageViewShuffleCheck, imageViewRepeat, imageViewRepeatCheck,
-            imageViewInternalMusicList, imageViewExternalMusicList, imageViewFavorite;
-    private TextView textViewOneOrALL;
+    private boolean isShuffle = false;
+    private String repeat = "N";
 
     private ProgressBar progress;
 
@@ -84,12 +89,12 @@ public class MainActivity extends AppCompatActivity {
     private String path;
 
     private RecyclerView recyclerViewMusicList;
-    private SwipeRefreshLayout swipeRefresh;
+    //private SwipeRefreshLayout swipeRefresh;
     private InternalMusicListAdapter internalAdapter;
     private ExternalMusicListAdapter externalAdapter;
 
     private final com.example.mediaplayer.CommonClasses.Handler Handler = new com.example.mediaplayer.CommonClasses.Handler();
-    private final int R_ID = R.id.activityMain_ImageView_Play;
+    private final int R_ID = R.id.activityMain_Button_Play;
     private final MusicListInterface musicListInterface = ApiClient.getApiClient().create(MusicListInterface.class);
 
     public static String selectedFileName;
@@ -99,6 +104,8 @@ public class MainActivity extends AppCompatActivity {
 
     public static JsonObject musicInfo;
 
+    private long downloadID;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -107,9 +114,9 @@ public class MainActivity extends AppCompatActivity {
 
         mediaPlayer = new MediaPlayer();
 
-        imageViewNext = findViewById(R.id.activityMain_ImageView_Next);
-        imageViewPlay = findViewById(R.id.activityMain_ImageView_Play);
-        imageViewPrevious = findViewById(R.id.activityMain_ImageView_Previous);
+        buttonNext = findViewById(R.id.activityMain_Button_Next);
+        buttonPlay = findViewById(R.id.activityMain_Button_Play);
+        buttonPrevious = findViewById(R.id.activityMain_Button_Previous);
         imageViewArt = findViewById(R.id.activityMain_ImageView_Art);
 
         textViewCurrentTime = findViewById(R.id.activityMain_TextView_CurrentTime);
@@ -117,31 +124,21 @@ public class MainActivity extends AppCompatActivity {
         textViewMusicName = findViewById(R.id.activityMain_TextView_MusicName);
         textViewArtistName = findViewById(R.id.activityMain_TextView_ArtistName);
 
-        imageViewShuffle = findViewById(R.id.activityMain_ImageView_Shuffle);
-        imageViewShuffleCheck = findViewById(R.id.activityMain_ImageView_ShuffleCheck);
-        imageViewRepeat = findViewById(R.id.activityMain_ImageView_Repeat);
-        imageViewRepeatCheck = findViewById(R.id.activityMain_ImageView_RepeatCheck);
+        buttonShuffle = findViewById(R.id.activityMain_Button_Shuffle);
+        buttonRepeat = findViewById(R.id.activityMain_Button_Repeat);
 
-        imageViewInternalMusicList = findViewById(R.id.activityMain_ImageView_InternalMusicList);
-        imageViewExternalMusicList = findViewById(R.id.activityMain_ImageView_ExternalMusicList);
+        buttonInternalMusicList = findViewById(R.id.activityMain_Button_InternalMusicList);
+        buttonExternalMusicList = findViewById(R.id.activityMain_Button_ExternalMusicList);
 
-        textViewOneOrALL = findViewById(R.id.activityMain_TextView_RepeatOneOrAll);
-
-        imageViewFavorite = findViewById(R.id.activityMain_ImageView_Favorite);
+        buttonFavorite = findViewById(R.id.activityMain_Button_Favorite);
 
         progress = findViewById(R.id.activityMain_ImageView_ProgressBar);
         progress.setVisibility(View.INVISIBLE);
 
-        imageViewShuffleCheck.setVisibility(View.INVISIBLE);
-        imageViewRepeatCheck.setVisibility(View.INVISIBLE);
-
-        textViewOneOrALL.setVisibility(View.INVISIBLE);
-
         seekbar = findViewById(R.id.activityMain_SeekBar);
         seekbar.setClickable(false);
 
-        imageViewPlay.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_play_arrow,getTheme()));
-        //imageViewPlay.setImageDrawable(getResources().getDrawable(R.drawable.ic_play_arrow));
+        buttonPlay.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_play_arrow_purple,getTheme()));
 
         path = Objects.requireNonNull(getExternalFilesDir(Environment.DIRECTORY_MUSIC)).getPath();
 
@@ -165,6 +162,9 @@ public class MainActivity extends AppCompatActivity {
             textViewVersion.setText(ver);
         }
 
+        registerReceiver(onDownloadComplete, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
+
+        myHandler.postDelayed(UpdateSongTime,100);
     }
 
     @Override
@@ -217,49 +217,46 @@ public class MainActivity extends AppCompatActivity {
 
     private void SetButtons(){
 
-        imageViewPlay.setOnClickListener(v -> Play());
+        buttonPlay.setOnClickListener(v -> Play());
 
-        imageViewNext.setOnClickListener(v -> Next());
+        buttonNext.setOnClickListener(v -> Next());
 
-        imageViewPrevious.setOnClickListener(v -> Previous());
+        buttonPrevious.setOnClickListener(v -> Previous());
 
-        imageViewRepeat.setOnClickListener(v -> {
+        buttonRepeat.setOnClickListener(v -> {
 
-            String OneOrAll = textViewOneOrALL.getText().toString();
-
-            switch (OneOrAll){
+            switch (repeat){
                 case "1":
-                    textViewOneOrALL.setText("A");
+                    repeat="A";
+                    buttonRepeat.setImageDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_repeat_purple, getTheme()));
                     break;
                 case "A":
-                    textViewOneOrALL.setText("N");
-                    imageViewRepeatCheck.setVisibility(View.INVISIBLE);
-                    textViewOneOrALL.setVisibility(View.INVISIBLE);
+                    repeat="N";
+                    buttonRepeat.setImageDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_no_repeat, getTheme()));
                     break;
                 case "N":
-                    textViewOneOrALL.setText("1");
-                    imageViewRepeatCheck.setVisibility(View.VISIBLE);
-                    textViewOneOrALL.setVisibility(View.VISIBLE);
+                    repeat="1";
+                    buttonRepeat.setImageDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_repeat_one_purple, getTheme()));
                     break;
             }
 
             SavePreferences();
         });
 
-        imageViewShuffle.setOnClickListener(v -> {
-            //Handler.ShowSnack("Indisponível", "Função indisponível, pois causa problemas pra identificar qual musica está sendo executada na playlist", this, R_ID);
+        buttonShuffle.setOnClickListener(v -> {
+            isShuffle = !isShuffle;
             Shuffle();
             SavePreferences();
         });
 
-        imageViewInternalMusicList.setOnClickListener(v -> DialogInternalMusicList());
+        buttonInternalMusicList.setOnClickListener(v -> DialogInternalMusicList());
 
-        imageViewExternalMusicList.setOnClickListener(v -> {
+        buttonExternalMusicList.setOnClickListener(v -> {
             GetInternalMusicList();
             GetExternalMusicList();
         });
 
-        imageViewFavorite.setOnClickListener(v -> setFavorite());
+        buttonFavorite.setOnClickListener(v -> setFavorite());
 
         seekbar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
@@ -281,11 +278,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void Play(){
         try {
-            /*if(internalAdapter.getItemCount() < 1){
-                return;
-            }*/
-
-            if(mediaPlayer.getDuration() == 0) return;
+            //if(mediaPlayer.getDuration() == 0) return;
 
             mediaPlayer.seekTo((int) currentTime);
             if (mediaPlayer.isPlaying()) {
@@ -303,16 +296,14 @@ public class MainActivity extends AppCompatActivity {
         if(internalAdapter.getItemCount() < 1){
             return;
         }
-        boolean isPlaying = mediaPlayer.isPlaying();
-        mediaPlayer.stop();
 
         if(currentTime > 5000){
-            if(mediaPlayer.isPlaying()) {
-                SetMusic(0);
-                SetPlay(true);
-            }
+            mediaPlayer.seekTo(0);
             return;
         }
+
+        boolean isPlaying = mediaPlayer.isPlaying();
+        mediaPlayer.stop();
 
         int filePosition = internalAdapter.getFilePosition(selectedFileName);
         if(filePosition <= 0) {
@@ -340,21 +331,25 @@ public class MainActivity extends AppCompatActivity {
         }else {
             SetMusic(1);
         }
-        if(isPlaying) {
-            SetPlay(true);
-        }
+        SetPlay(isPlaying);
     }
 
     private void SetPlay(boolean isPlay){
         try {
             if (isPlay) {
-                imageViewPlay.setImageDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_pause, getTheme()));
+                buttonPlay.setImageDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_pause_purple, getTheme()));
                 mediaPlayer.start();
             } else {
-                imageViewPlay.setImageDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_play_arrow, getTheme()));
+                buttonPlay.setImageDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_play_arrow_purple, getTheme()));
                 mediaPlayer.pause();
             }
 
+            if(internalAdapter != null){
+                internalAdapter.notifyDataSetChanged();
+            }
+            if(externalAdapter != null){
+                externalAdapter.notifyDataSetChanged();
+            }
             PlayerNotification.createNotification(this);
         }catch (Exception e){
             Handler.ShowSnack("Houve um erro","MainActivity.SetPlay: " + e.getMessage(), MainActivity.this, R_ID);
@@ -387,10 +382,10 @@ public class MainActivity extends AppCompatActivity {
                     Seconds = "0"+Seconds;
                 }
                 textViewTotalTime.setText(String.format("%s:%s", Minutes, Seconds));
+                String cur = "0:00";
+                textViewCurrentTime.setText(cur);
 
-                GetMusicInfo(internalAdapter.getFile(newPosition).getAbsolutePath());
-
-                myHandler.postDelayed(UpdateSongTime,100);
+                musicInfo = getMusicInfo(internalAdapter.getFile(newPosition).getAbsolutePath());
             }
 
             SavePreferences();
@@ -406,7 +401,6 @@ public class MainActivity extends AppCompatActivity {
                     this, recyclerViewMusicList, new RecyclerItemClickListener.OnItemClickListener() {
                 @Override
                 public void onItemClick(View view, int position) {
-
                     try {
                         if (!isExternal) {
                             mediaPlayer.stop();
@@ -432,7 +426,7 @@ public class MainActivity extends AppCompatActivity {
                                 return;
                             }
 
-                            imageViewFavorite.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_favorite_border,getTheme()));
+                            buttonFavorite.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_favorite_border_purple,getTheme()));
                             if (externalAdapter == null) return;
                             GetExternalMusicInfo(position);
                             StreamPlay(externalAdapter.getFileName(position));
@@ -447,7 +441,12 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public boolean onLongItemClick(View view, int position) {
-                    return false;
+                    DialogMusicMenu(position);
+                    /*File file = new File(Objects.requireNonNull(getExternalFilesDir(Environment.DIRECTORY_MUSIC)).getAbsolutePath(),selectedFileName);
+                    if(!file.exists()) {
+                        beginDownload(selectedFileName);
+                    }*/
+                    return true;
                 }
             }));
         }catch (Exception e){
@@ -486,13 +485,18 @@ public class MainActivity extends AppCompatActivity {
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String s) {
+                if (!(externalAdapter == null)) {
+                    externalAdapter.getFilter().filter(s);
+                }
                 return false;
             }
 
             @Override
             public boolean onQueryTextChange(String s) {
-                if (!(externalAdapter == null)) {
-                    externalAdapter.getFilter().filter(s);
+                if(externalAdapter != null){
+                    if(s.equals("")){
+                        externalAdapter.getFilter().filter("");
+                    }
                 }
                 return false;
             }
@@ -500,11 +504,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void Shuffle(){
-        if(imageViewShuffleCheck.getVisibility() == View.INVISIBLE){
-            imageViewShuffleCheck.setVisibility(View.VISIBLE);
+        if(isShuffle){
+            buttonShuffle.setImageDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_transform_purple, getTheme()));
             internalAdapter.setShuffle(true);
         }else{
-            imageViewShuffleCheck.setVisibility(View.INVISIBLE);
+            buttonShuffle.setImageDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_no_transform, getTheme()));
             internalAdapter.setShuffle(false);
         }
     }
@@ -529,10 +533,51 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private JsonArray getInternalArtistList(){
+        JsonArray jsonArray = new JsonArray();
+        try {
+            File dir = new File(path);
+            File[] fileList = dir.listFiles();
+
+            List<File> files = new ArrayList<>();
+
+            assert fileList != null;
+            Collections.addAll(files, fileList);
+
+
+            for (File file : fileList) {
+                JsonObject jsonObject = getMusicInfo(path + file.getName());
+                boolean isFind = false;
+                for (int i = 0; i < jsonArray.size(); i++) {
+                    JsonObject innerObject = jsonArray.get(i).getAsJsonObject();
+                    if (innerObject.get("artist").getAsString().equals(jsonObject.get("artist").getAsString())) {
+                        int quantity = jsonArray.get(i).getAsJsonObject().get("quantity").getAsInt();
+                        quantity++;
+                        jsonArray.get(i).getAsJsonObject().addProperty("quantity", quantity);
+                        isFind = true;
+                    }
+                    i = jsonArray.size();
+                }
+
+                if (!isFind) {
+                    JsonObject newJson = new JsonObject();
+                    newJson.addProperty("artist", jsonObject.get("artist").getAsString());
+                    newJson.addProperty("quantity", 1);
+                    jsonArray.add(jsonObject);
+                }
+
+            }
+        }catch (Exception e){
+            Handler.ShowSnack("Houve um erro","MainActivity.getInternalArtistList: " + e.getMessage(), this, R_ID);
+        }
+
+        return jsonArray;
+    }
+
     private void GetExternalMusicList(){
         try {
-            imageViewExternalMusicList.setEnabled(false);
-            imageViewExternalMusicList.setVisibility(View.INVISIBLE);
+            buttonExternalMusicList.setEnabled(false);
+            buttonExternalMusicList.setVisibility(View.INVISIBLE);
             progress.setVisibility(View.VISIBLE);
 
             Call<JsonObject> call = musicListInterface.GetMusicList();
@@ -551,8 +596,8 @@ public class MainActivity extends AppCompatActivity {
                         Handler.ShowSnack("Houve um erro","MainActivity.GetExternalMusicList.onResponse: " + e.getMessage(), MainActivity.this, R_ID);
                     }
 
-                    imageViewExternalMusicList.setEnabled(true);
-                    imageViewExternalMusicList.setVisibility(View.VISIBLE);
+                    buttonExternalMusicList.setEnabled(true);
+                    buttonExternalMusicList.setVisibility(View.VISIBLE);
                     progress.setVisibility(View.INVISIBLE);
                 }
 
@@ -560,8 +605,8 @@ public class MainActivity extends AppCompatActivity {
                 public void onFailure(@NonNull Call<JsonObject> call, @NonNull Throwable t) {
                     Handler.ShowSnack("Houve um erro","MainActivity.GetExternalMusicList.onFailure: " + t.toString(), MainActivity.this, R_ID);
 
-                    imageViewExternalMusicList.setEnabled(true);
-                    imageViewExternalMusicList.setVisibility(View.VISIBLE);
+                    buttonExternalMusicList.setEnabled(true);
+                    buttonExternalMusicList.setVisibility(View.VISIBLE);
                     progress.setVisibility(View.INVISIBLE);
                 }
             });
@@ -569,16 +614,17 @@ public class MainActivity extends AppCompatActivity {
         }catch (Exception e){
             Handler.ShowSnack("Houve um erro","MainActivity.GetExternalMusicList: " + e.getMessage(), MainActivity.this, R_ID);
 
-            imageViewExternalMusicList.setEnabled(true);
-            imageViewExternalMusicList.setVisibility(View.VISIBLE);
+            buttonExternalMusicList.setEnabled(true);
+            buttonExternalMusicList.setVisibility(View.VISIBLE);
             progress.setVisibility(View.INVISIBLE);
         }
     }
 
-    private void GetMusicInfo(String source){
+    private JsonObject getMusicInfo(String source){
         MediaMetadataRetriever mediaMetadataRetriever = new MediaMetadataRetriever();
         mediaMetadataRetriever.setDataSource(source);
 
+        JsonObject jsonObject = new JsonObject();
         try {
             byte[] art = mediaMetadataRetriever.getEmbeddedPicture();
             assert art != null;
@@ -587,11 +633,10 @@ public class MainActivity extends AppCompatActivity {
             textViewArtistName.setText(mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST));
             textViewMusicName.setText(mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE));
 
-            musicInfo = new JsonObject();
-            musicInfo.addProperty("artist", mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST));
-            musicInfo.addProperty("title", mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE));
+            jsonObject.addProperty("artist", mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST));
+            jsonObject.addProperty("title", mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE));
             String artString = Handler.ImageEncode(artImage);
-            musicInfo.addProperty("art", artString);
+            jsonObject.addProperty("art", artString);
         } catch (Exception e) {
             imageViewArt.setImageBitmap(null);
             String unknown = "Arquivo sem informações";
@@ -599,11 +644,11 @@ public class MainActivity extends AppCompatActivity {
             textViewArtistName.setText(filename);
             textViewMusicName.setText(unknown);
 
-            musicInfo = new JsonObject();
-            musicInfo.addProperty("artist", filename);
-            musicInfo.addProperty("title", unknown);
+            jsonObject.addProperty("artist", filename);
+            jsonObject.addProperty("title", unknown);
             //jsonObject.addProperty("art", Arrays.toString(art));
         }
+        return jsonObject;
     }
 
     private void GetExternalMusicInfo(int position){
@@ -612,7 +657,7 @@ public class MainActivity extends AppCompatActivity {
             textViewArtistName.setText(jsonObject.get("artist").getAsString());
             textViewMusicName.setText(jsonObject.get("title").getAsString());
 
-            imageViewArt.setImageDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.download, getTheme()));
+            imageViewArt.setImageDrawable(null);
 
             musicInfo = new JsonObject();
             musicInfo.addProperty("artist", jsonObject.get("artist").getAsString());
@@ -637,43 +682,50 @@ public class MainActivity extends AppCompatActivity {
                 return;
             }
 
-            Dialog dialogMusicList = new Dialog(this, R.style.Theme_AppCompat_Dialog_MinWidth);
-            dialogMusicList.setContentView(R.layout.dialog_internal_music_list);
+            Dialog dialog = new Dialog(this, R.style.Theme_AppCompat_Dialog_MinWidth);
+            dialog.setContentView(R.layout.dialog_internal_music_list);
 
-            recyclerViewMusicList = dialogMusicList.findViewById(R.id.dialogInternalMusic_RecyclerView);
-            swipeRefresh = dialogMusicList.findViewById(R.id.dialogInternalMusic_SwipeRefresh);
-            searchView = dialogMusicList.findViewById(R.id.dialogInternalMusic_SearchView);
-            ImageView imageViewList = dialogMusicList.findViewById(R.id.dialogInternalMusic_ImageViewList);
-            ImageView imageViewFavorite = dialogMusicList.findViewById(R.id.dialogInternalMusic_ImageViewFavorite);
+            recyclerViewMusicList = dialog.findViewById(R.id.dialogInternalMusic_RecyclerView);
+            searchView = dialog.findViewById(R.id.dialogInternalMusic_SearchView);
+
+            CircleButton buttonList = dialog.findViewById(R.id.dialogInternalMusic_Button_List);
+            CircleButton buttonFavorite = dialog.findViewById(R.id.dialogInternalMusic_Button_Favorite);
+            CircleButton buttonArtist = dialog.findViewById(R.id.dialogInternalMusic_Button_Artist);
 
             RecyclerView.LayoutManager layoutManager;
             recyclerViewMusicList.setHasFixedSize(true);
             layoutManager = new LinearLayoutManager(this);
             recyclerViewMusicList.setLayoutManager(layoutManager);
 
-            swipeRefresh.setProgressBackgroundColorSchemeColor(getResources().getColor(R.color.colorAccent));
-            swipeRefresh.setColorSchemeColors(getResources().getColor(R.color.colorBlack));
-            swipeRefresh.setOnRefreshListener(this::SwipeRefreshAction);
+            //swipeRefresh = dialog.findViewById(R.id.dialogInternalMusic_SwipeRefresh);
+            //swipeRefresh.setProgressBackgroundColorSchemeColor(getResources().getColor(R.color.colorAccent));
+            //swipeRefresh.setColorSchemeColors(getResources().getColor(R.color.colorBlack));
+            //swipeRefresh.setOnRefreshListener(this::SwipeRefreshAction);
 
             recyclerViewMusicList.setAdapter(internalAdapter);
 
             if(favoriteList.size()<1){
-                imageViewFavorite.setAlpha(0.6f);
+                buttonFavorite.setAlpha(0.6f);
             }
 
-            imageViewFavorite.setOnClickListener(v->{
+            buttonFavorite.setOnClickListener(v->{
                 if(favoriteList.size()<1)return;
                 internalAdapter = new InternalMusicListAdapter(favoriteList,this, R_ID);
                 recyclerViewMusicList.setAdapter(internalAdapter);
             });
 
-            imageViewList.setOnClickListener(v->{
+            buttonList.setOnClickListener(v->{
                 GetInternalMusicList();
                 recyclerViewMusicList.setAdapter(internalAdapter);
             });
 
-            dialogMusicList.create();
-            dialogMusicList.show();
+            buttonArtist.setOnClickListener(v->{
+                Toast.makeText(this, "Não disponível",Toast.LENGTH_LONG).show();
+                getInternalArtistList();
+            });
+
+            dialog.create();
+            dialog.show();
 
             SetRecyclerView(false);
             SetInternalSearchView();
@@ -685,24 +737,23 @@ public class MainActivity extends AppCompatActivity {
 
     private void DialogExternalMusicList(JsonArray data){
         try {
-            Dialog dialogMusicList = new Dialog(this, R.style.Theme_AppCompat_Dialog_MinWidth);
-            dialogMusicList.setContentView(R.layout.dialog_external_music_list);
+            Dialog dialog = new Dialog(this, R.style.Theme_AppCompat_Dialog_MinWidth);
+            dialog.setContentView(R.layout.dialog_external_music_list);
 
-            recyclerViewMusicList = dialogMusicList.findViewById(R.id.dialogExternalMusic_RecyclerView);
-            searchView = dialogMusicList.findViewById(R.id.dialogExternalMusic_SearchView);
+            recyclerViewMusicList = dialog.findViewById(R.id.dialogExternalMusic_RecyclerView);
+            searchView = dialog.findViewById(R.id.dialogExternalMusic_SearchView);
 
             RecyclerView.LayoutManager layoutManager;
             recyclerViewMusicList.setHasFixedSize(true);
             layoutManager = new LinearLayoutManager(this);
             recyclerViewMusicList.setLayoutManager(layoutManager);
 
-            externalAdapter = new ExternalMusicListAdapter(internalAdapter.getFiles(), data, this, R.id.activityMain_ImageView_Play);
-            //externalAdapter.setSelectedFileName(selectedFileName);
+            externalAdapter = new ExternalMusicListAdapter(internalAdapter.getFiles(), data, this, R.id.activityMain_Button_Play);
 
             recyclerViewMusicList.setAdapter(externalAdapter);
 
-            dialogMusicList.create();
-            dialogMusicList.show();
+            dialog.create();
+            dialog.show();
 
             SetRecyclerView(true);
             SetExternalSearchView();
@@ -712,12 +763,60 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void SwipeRefreshAction(){
+    private void DialogMusicMenu(int position){
+        try {
+            Dialog dialog = new Dialog(this, R.style.Theme_AppCompat_Dialog_MinWidth);
+            dialog.setContentView(R.layout.dialog_music_menu);
+
+            TextView textViewTitle = dialog.findViewById(R.id.dialogMusicMenu_TextView_Title);
+            TextView textViewArtist = dialog.findViewById(R.id.dialogMusicMenu_TextView_Artist);
+            TextView textViewYear = dialog.findViewById(R.id.dialogMusicMenu_TextView_Year);
+            ImageView imageView = dialog.findViewById(R.id.dialogMusicMenu_ImageView);
+            Button button = dialog.findViewById(R.id.dialogMusicMenu_Button);
+            CircleButton buttonDownload = dialog.findViewById(R.id.dialogMusicMenu_Button_Download);
+
+            JsonObject jsonObject = externalAdapter.getDataInfo(position);
+            textViewTitle.setText(jsonObject.get("title").getAsString());
+            textViewArtist.setText(jsonObject.get("artist").getAsString());
+
+            String year = "Ano desconhecido";
+            textViewYear.setText(year);
+            if(jsonObject.get("year") != JsonNull.INSTANCE){
+                textViewYear.setText(jsonObject.get("year").getAsString());
+            }
+
+            imageView.setImageBitmap(Handler.ImageDecode(jsonObject.get("art").getAsString()));
+
+            File file = new File(Objects.requireNonNull(getExternalFilesDir(Environment.DIRECTORY_MUSIC)).getAbsolutePath(), jsonObject.get("filename").getAsString());
+
+            if(file.exists()){
+                buttonDownload.setEnabled(false);
+                buttonDownload.setVisibility(View.INVISIBLE);
+            }else{
+                buttonDownload.setOnClickListener(v->{
+                    beginDownload(jsonObject.get("filename").getAsString());
+                    buttonDownload.setEnabled(false);
+                    buttonDownload.setVisibility(View.INVISIBLE);
+                });
+            }
+
+            button.setOnClickListener(v-> dialog.cancel());
+
+            dialog.create();
+            dialog.show();
+
+        }catch (Exception e){
+            Toast.makeText(this,"Houve um erro",Toast.LENGTH_LONG).show();
+            Handler.ShowSnack("Houve um erro","MainActivity.DialogMusicMenu: " + e.getMessage(), MainActivity.this, R_ID);
+        }
+    }
+
+    /*private void SwipeRefreshAction(){
         GetInternalMusicList();
         Shuffle();
         recyclerViewMusicList.setAdapter(internalAdapter);
         swipeRefresh.setRefreshing(false);
-    }
+    }*/
 
     private void StreamPlay(String song){
         try {
@@ -750,30 +849,34 @@ public class MainActivity extends AppCompatActivity {
     private void SavePreferences(){
         SharedPreferences settings = getSharedPreferences(PREFERENCES, 0);
         SharedPreferences.Editor editor = settings.edit();
-        boolean shuffle = false;
-        if(imageViewShuffleCheck.getVisibility()==View.VISIBLE){
-            shuffle = true;
-        }
-        editor.putBoolean("shuffle", shuffle);
-        editor.putString("repeat", textViewOneOrALL.getText().toString());
+
+        editor.putBoolean("shuffle", isShuffle);
+        editor.putString("repeat", repeat);
         editor.putString("selectedFileName", selectedFileName);
         editor.apply();
     }
 
     private void LoadPreferences(){
         SharedPreferences settings = getSharedPreferences(PREFERENCES, 0);
-        boolean shuffle = settings.getBoolean("shuffle",false);
-        String repeat = settings.getString("repeat","N");
+        isShuffle = settings.getBoolean("shuffle",false);
+        repeat = settings.getString("repeat","N");
 
-        assert repeat != null;
-        if(!repeat.equalsIgnoreCase("N")){
-            imageViewRepeatCheck.setVisibility(View.VISIBLE);
-            textViewOneOrALL.setVisibility(View.VISIBLE);
-            textViewOneOrALL.setText(repeat);
+        switch (Objects.requireNonNull(repeat)){
+            case "N":
+                buttonRepeat.setImageDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_no_repeat, getTheme()));
+                break;
+            case "1":
+                buttonRepeat.setImageDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_repeat_one_purple, getTheme()));
+                break;
+            case "A":
+                buttonRepeat.setImageDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_repeat_purple, getTheme()));
+                break;
         }
 
-        if(!shuffle){
-            imageViewShuffleCheck.setVisibility(View.VISIBLE);
+        if(isShuffle){
+            buttonShuffle.setImageDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_transform_purple, getTheme()));
+        }else{
+            buttonShuffle.setImageDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_no_transform, getTheme()));
         }
 
         selectedFileName = settings.getString("selectedFileName","");
@@ -781,8 +884,8 @@ public class MainActivity extends AppCompatActivity {
         JsonParser parser = new JsonParser();
         JsonArray jsonArray;
         String favorite = settings.getString("favorite","");
-        if(favorite.equals("")) return;
-        jsonArray = (JsonArray) parser.parse(settings.getString("favorite",""));
+        if(Objects.equals(favorite, "")) return;
+        jsonArray = (JsonArray) parser.parse(Objects.requireNonNull(settings.getString("favorite", "")));
         String path = Objects.requireNonNull(getExternalFilesDir(Environment.DIRECTORY_MUSIC)).getPath();
         for (JsonElement jsonElement: jsonArray){
             File file = new File(path,jsonElement.getAsJsonObject().get("file").getAsString());
@@ -799,11 +902,9 @@ public class MainActivity extends AppCompatActivity {
             }
 
             if (!isFavorite) {
-                imageViewFavorite.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_favorite_border,getTheme()));
-                //imageViewFavorite.setImageDrawable(getResources().getDrawable(R.drawable.ic_favorite_border));
+                buttonFavorite.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_favorite_border_purple,getTheme()));
             } else {
-                imageViewFavorite.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_favorite,getTheme()));
-                //imageViewFavorite.setImageDrawable(getResources().getDrawable(R.drawable.ic_favorite));
+                buttonFavorite.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_favorite_purple,getTheme()));
             }
         }catch (Exception e){
             Handler.ShowSnack("Houve um erro","MainActivity.getFavorite: " + e.getMessage(), MainActivity.this, R_ID);
@@ -822,12 +923,10 @@ public class MainActivity extends AppCompatActivity {
 
             if (isFavorite) {
                 favoriteList.remove(file);
-                imageViewFavorite.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_favorite_border,getTheme()));
-                //imageViewFavorite.setImageDrawable(getResources().getDrawable(R.drawable.ic_favorite_border));
+                buttonFavorite.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_favorite_border_purple,getTheme()));
             } else {
                 favoriteList.add(file);
-                imageViewFavorite.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_favorite,getTheme()));
-                //imageViewFavorite.setImageDrawable(getResources().getDrawable(R.drawable.ic_favorite));
+                buttonFavorite.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_favorite_purple,getTheme()));
             }
 
             SharedPreferences settings = getSharedPreferences(PREFERENCES, 0);
@@ -887,60 +986,57 @@ public class MainActivity extends AppCompatActivity {
     private final Runnable UpdateSongTime = new Runnable() {
         @SuppressLint("DefaultLocale")
         public void run() {
-            currentTime = mediaPlayer.getCurrentPosition();
+            if(!selectedFileName.equals("") && mediaPlayer.isPlaying()) {
 
-            if(textViewOneOrALL.getText().toString().equalsIgnoreCase("1")){
+                currentTime = mediaPlayer.getCurrentPosition();
+
                 int current = mediaPlayer.getCurrentPosition();
                 int duration = mediaPlayer.getDuration();
-                if(current >= duration - 1000){
-                    mediaPlayer.seekTo(0);
+                switch (repeat) {
+                    case "N":
+                        if (current >= duration - 1000) {
+                            SetPlay(false);
+                            currentTime = 0;
+                            mediaPlayer.seekTo(0);
+                        }
+                        break;
+                    case "1":
+                        if (current >= duration - 1000) {
+                            mediaPlayer.seekTo(0);
+                        }
+                        break;
+                    case "A":
+                        if (current >= duration - 1000) {
+                            Next();
+                        }
+                        break;
                 }
-            }
 
-            if(textViewOneOrALL.getText().toString().equalsIgnoreCase("A")){
-                int current = mediaPlayer.getCurrentPosition();
-                int duration = mediaPlayer.getDuration();
-                if(current >= duration - 1000){
-                    Next();
+                String Minutes = String.valueOf(TimeUnit.MILLISECONDS.toMinutes((long) currentTime));
+                String Seconds = String.valueOf(TimeUnit.MILLISECONDS.toSeconds((long) currentTime)
+                        - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes((long) currentTime)));
+                if (Seconds.length() < 2) {
+                    Seconds = "0" + Seconds;
                 }
-            }
+                textViewCurrentTime.setText(String.format("%s:%s", Minutes, Seconds));
 
-            if(textViewOneOrALL.getText().toString().equalsIgnoreCase("N")){
-                int current = mediaPlayer.getCurrentPosition();
-                int duration = mediaPlayer.getDuration();
-                if(current >= duration - 1000){
-                    SetPlay(false);
-                    currentTime=0;
-                    mediaPlayer.seekTo(0);
+                seekbar.setMax((int) finalTime);
+                seekbar.setProgress((int) currentTime);
+
+                if (!mediaPlayer.isPlaying()) {
+                    buttonPlay.setImageDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_play_arrow_purple, getTheme()));
                 }
-            }
-
-            String Minutes = String.valueOf(TimeUnit.MILLISECONDS.toMinutes((long) currentTime));
-            String Seconds = String.valueOf(TimeUnit.MILLISECONDS.toSeconds((long) currentTime)
-                    - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes((long) currentTime)));
-            if(Seconds.length() < 2){
-                Seconds = "0"+Seconds;
-            }
-            textViewCurrentTime.setText(String.format("%s:%s", Minutes, Seconds));
-
-            seekbar.setMax((int) finalTime);
-            seekbar.setProgress((int)currentTime);
-
-            if(!mediaPlayer.isPlaying()){
-                imageViewPlay.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_play_arrow,getTheme()));
-                //imageViewPlay.setImageDrawable(getResources().getDrawable(R.drawable.ic_play_arrow));
             }
 
             myHandler.postDelayed(this, 100);
         }
     };
 
-    BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
+    private final BroadcastReceiver broadcastReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
-            String action = intent.getExtras().getString("actionName");
-
-            switch (action){
+            String action = Objects.requireNonNull(intent.getExtras()).getString("actionName");
+            switch (Objects.requireNonNull(action)){
                 case PlayerNotification.ACTION_PREVIOUS:
                     Previous();
                     PlayerNotification.createNotification(context);
@@ -956,5 +1052,30 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+    };
+
+    private void beginDownload(String filename){
+        File file = new File(Objects.requireNonNull(getExternalFilesDir(Environment.DIRECTORY_MUSIC)).getAbsolutePath(),filename);
+        DownloadManager.Request request=new DownloadManager.Request(Uri.parse(ApiClient.BASE_URL+filename))
+                .setTitle(filename)// Title of the Download Notification
+                .setDescription("Baixando")// Description of the Download Notification
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)// Visibility of the download Notification
+                .setDestinationUri(Uri.fromFile(file))// Uri of the destination file
+                .setRequiresCharging(false)// Set if charging is required to begin the download
+                .setAllowedOverMetered(true)// Set if download is allowed on Mobile network
+                .setAllowedOverRoaming(true);// Set if download is allowed on roaming network
+        DownloadManager downloadManager= (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+        downloadID = downloadManager.enqueue(request);// enqueue puts the download request in the queue.
+    }
+
+    private final BroadcastReceiver onDownloadComplete = new BroadcastReceiver() {
+
+        public void onReceive(Context context, Intent intent) {
+            long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
+            if (downloadID == id) {
+                externalAdapter.GetInternalMusicList();
+                externalAdapter.notifyDataSetChanged();
+            }
+        }
     };
 }

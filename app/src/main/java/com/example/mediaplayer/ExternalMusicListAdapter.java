@@ -52,10 +52,6 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
     private final JsonArray data;
     private JsonArray filteredData;
 
-    private long downloadID;
-
-    private boolean isDownloading = false;
-
     public ExternalMusicListAdapter(List<File> files, JsonArray data, Activity activity, int R_ID) {
         this.data = data;
         this.filteredData = data;
@@ -66,7 +62,6 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
 
     @NonNull
     public ViewHolder onCreateViewHolder(ViewGroup parent, int ViewType) {
-        activity.registerReceiver(onDownloadComplete, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
         View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_external_music_list,parent,false);
         return new ViewHolder(view);
     }
@@ -95,6 +90,9 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
                 artist = filename;
             }
 
+            //>>>Refatorar<<<
+            //Algoritimo que deve ser feito somente uma vez e
+            //ir marcando as musicas encontradas
             viewHolder.imageViewDownload.setVisibility(View.VISIBLE);
             if(files!=null) {
                 for (int i = 0; i < files.size(); i++) {
@@ -108,26 +106,14 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
 
             viewHolder.gifImageView.setVisibility(View.INVISIBLE);
             String fileName = filteredData.get(position).getAsJsonObject().get("filename").getAsString();
-            if(MainActivity.selectedFileName.equals(fileName)){
+            if(MainActivity.selectedFileName.equals(fileName) && MainActivity.isPlaying()){
                 viewHolder.gifImageView.setVisibility(View.VISIBLE);
             }
 
             viewHolder.textViewArtistName.setText(artist);
             viewHolder.textViewMusicName.setText(title);
 
-            GetMusicArt(viewHolder.imageViewArt, filename/*, position*/);
-
-            viewHolder.imageViewDownload.setOnClickListener(v->{
-                if(isDownloading){
-                    Toast.makeText(activity,"Multidownload temporariamente desativado",Toast.LENGTH_LONG).show();
-                    return;
-                }
-                File file = new File(Objects.requireNonNull(activity.getExternalFilesDir(Environment.DIRECTORY_MUSIC)).getAbsolutePath(),filename);
-                if(!file.exists()) {
-                    isDownloading = true;
-                    beginDownload(filename);
-                }
-            });
+            GetMusicArt(viewHolder.imageViewArt, filename, position);
 
         }catch (Exception e){
             if(!isBindViewHolderError) {
@@ -164,10 +150,10 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
         return filteredData.get(position).getAsJsonObject();
     }
 
-    private void GetMusicArt(ImageView imageView, String filename/*, int position*/){
+    private void GetMusicArt(ImageView imageView, String filename, int position){
         try {
 
-            /*int pos = -1;
+            int pos = -1;
             for (int i = 0; i < data.size(); i++) {
                 String thisFilename = data.get(i).getAsJsonObject().get("filename").getAsString();
                 if(thisFilename.equals(filename)){
@@ -177,12 +163,14 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
             }
 
             if(data.get(pos).getAsJsonObject().has("art")){
-                imageView.setImageBitmap(Handler.ImageDecode(data.get(pos).getAsJsonObject().get("art").getAsString()));
+                imageView.setImageBitmap(Handler.ImageDecode(
+                        data.get(pos).getAsJsonObject().get("art").getAsString()
+                ));
                 return;
-            }*/
+            }
 
             Call<JsonObject> call = musicListInterface.GetMusicArt(filename);
-            //int finalPos = pos;
+            int finalPos = pos;
             call.enqueue(new Callback<JsonObject>() {
                 @Override
                 public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
@@ -194,11 +182,11 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
 
                             imageView.setImageBitmap(Handler.ImageDecode(jsonArray.get(0).getAsJsonObject().get("art").getAsString()));
 
-                            /*JsonObject newJsonObject = filteredData.get(position).getAsJsonObject();
+                            JsonObject newJsonObject = filteredData.get(position).getAsJsonObject();
                             newJsonObject.addProperty("art",jsonArray.get(0).getAsJsonObject().get("art").getAsString());
-                            data.set(finalPos, newJsonObject);*/
+                            data.set(finalPos, newJsonObject);
 
-                            //data.get(finalPos).getAsJsonObject().addProperty("art",jsonArray.get(0).getAsJsonObject().get("art").getAsString());
+                            data.get(finalPos).getAsJsonObject().addProperty("art",jsonArray.get(0).getAsJsonObject().get("art").getAsString());
                         }else{
                             imageView.setImageBitmap(null);
                         }
@@ -226,15 +214,6 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
             return "Unknown";
         }
     }
-
-    /*public void setSelectedFileName(String filename){
-        selectedFileName = filename;
-        notifyDataSetChanged();
-    }*/
-
-    /*public String getSelectedFileName(){
-        return selectedFileName;
-    }*/
 
     public Filter getFilter() {
         return new Filter()
@@ -282,35 +261,6 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
         };
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.N)
-    private void beginDownload(String filename){
-        File file = new File(Objects.requireNonNull(activity.getExternalFilesDir(Environment.DIRECTORY_MUSIC)).getAbsolutePath(),filename);
-        DownloadManager.Request request=new DownloadManager.Request(Uri.parse(ApiClient.BASE_URL+filename))
-                .setTitle(filename)// Title of the Download Notification
-                .setDescription("Baixando")// Description of the Download Notification
-                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)// Visibility of the download Notification
-                .setDestinationUri(Uri.fromFile(file))// Uri of the destination file
-                .setRequiresCharging(false)// Set if charging is required to begin the download
-                .setAllowedOverMetered(true)// Set if download is allowed on Mobile network
-                .setAllowedOverRoaming(true);// Set if download is allowed on roaming network
-        DownloadManager downloadManager= (DownloadManager) activity.getSystemService(DOWNLOAD_SERVICE);
-        downloadID = downloadManager.enqueue(request);// enqueue puts the download request in the queue.
-    }
-
-    private final BroadcastReceiver onDownloadComplete = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            //Fetching the download id received with the broadcast
-            long id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
-            //Checking if the received broadcast is for our enqueued download by matching download id
-            if (downloadID == id) {
-                GetInternalMusicList();
-                notifyDataSetChanged();
-            }
-            isDownloading=false;
-        }
-    };
-
     public void GetInternalMusicList(){
         try {
             File dir = new File(Objects.requireNonNull(activity.getExternalFilesDir(Environment.DIRECTORY_MUSIC)).getAbsolutePath());
@@ -320,7 +270,7 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
 
             Collections.sort(files);
         }catch (Exception e){
-            Handler.ShowSnack("Houve um erro","MainActivity.GetInternalMusicList: " + e.getMessage(), activity, R_ID);
+            Handler.ShowSnack("Houve um erro","ExternalMusicListAdapter.GetInternalMusicList: " + e.getMessage(), activity, R_ID);
         }
     }
 

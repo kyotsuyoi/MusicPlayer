@@ -1,11 +1,6 @@
 package com.example.mediaplayer;
 
 import android.app.Activity;
-
-import androidx.annotation.NonNull;
-import androidx.core.content.res.ResourcesCompat;
-import androidx.recyclerview.widget.RecyclerView;
-
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.MediaMetadataRetriever;
@@ -17,6 +12,13 @@ import android.widget.Filter;
 import android.widget.ImageView;
 import android.widget.TextView;
 
+import androidx.annotation.NonNull;
+import androidx.core.content.res.ResourcesCompat;
+import androidx.recyclerview.widget.RecyclerView;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,59 +27,46 @@ import java.util.Objects;
 
 import pl.droidsonroids.gif.GifImageView;
 
-public class InternalMusicListAdapter extends RecyclerView.Adapter <InternalMusicListAdapter.ViewHolder> {
+public class InternalArtistListAdapter extends RecyclerView.Adapter <InternalArtistListAdapter.ViewHolder> {
 
-    private final List<File> files;
-    private List<File> filteredFiles;
+    private JsonArray list;
+    private JsonArray filteredList;
     private final Activity activity;
     private final com.example.mediaplayer.CommonClasses.Handler Handler = new com.example.mediaplayer.CommonClasses.Handler();
     private final int R_ID;
     private boolean isBindViewHolderError;
 
-    public InternalMusicListAdapter(List<File> files, Activity activity, int R_ID) {
-        this.files = files;
-        this.filteredFiles = files;
+    public InternalArtistListAdapter(JsonArray list, Activity activity, int R_ID) {
+        this.list = list;
+        this.filteredList = list;
         this.activity = activity;
         this.R_ID = R_ID;
     }
 
     @NonNull
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int ViewType) {
-        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_internal_music_list,parent,false);
+        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_internal_artist_list,parent,false);
         return new ViewHolder(view);
     }
 
     public void onBindViewHolder(@NonNull ViewHolder viewHolder, int position) {
         try {
-            GetMusicInfo(
-                    filteredFiles.get(position).getAbsolutePath(),
-                    viewHolder.imageViewArt,
-                    viewHolder.textViewArtistName,
-                    viewHolder.textViewMusicName
-            );
+            JsonObject jsonObject = filteredList.get(position).getAsJsonObject();
 
-            String fileName = filteredFiles.get(position).getName();
-            if (MainActivity.selectedFileName.equals(fileName)){
-                viewHolder.imageViewPlaying.setVisibility(View.VISIBLE);
-                if (!MainActivity.isPlaying()) {
-                    viewHolder.imageViewPlaying.setImageDrawable(ResourcesCompat.getDrawable(
-                            activity.getResources(),R.drawable.ic_pause_purple,activity.getTheme()));
-                    viewHolder.gifImageView.setVisibility(View.INVISIBLE);
-                } else {
-                    viewHolder.imageViewPlaying.setImageDrawable(ResourcesCompat.getDrawable(
-                            activity.getResources(),R.drawable.ic_play_arrow_purple,activity.getTheme()));
-                    viewHolder.gifImageView.setVisibility(View.VISIBLE);
-                }
-            } else {
-                viewHolder.imageViewPlaying.setVisibility(View.INVISIBLE);
-                viewHolder.gifImageView.setVisibility(View.INVISIBLE);
-            }
+            /*GetMusicInfo(
+                    jsonObject.get("filename").getAsString(),
+                    viewHolder.imageViewArt,
+                    viewHolder.textViewArtist
+            );*/
+
+            viewHolder.textViewArtist.setText(jsonObject.get("artist").getAsString());
+            viewHolder.textViewQuantity.setText(jsonObject.get("quantity").getAsString());
 
         }catch (Exception e){
             if(!isBindViewHolderError) {
                 Handler.ShowSnack(
                         "Houve um erro",
-                        "InternalMusicListAdapter.onBindViewHolder: " + e.getMessage(),
+                        "InternalArtistListAdapter.onBindViewHolder: " + e.getMessage(),
                         activity,
                         R_ID
                 );
@@ -88,25 +77,22 @@ public class InternalMusicListAdapter extends RecyclerView.Adapter <InternalMusi
 
     public static class ViewHolder extends RecyclerView.ViewHolder{
 
-        ImageView imageViewArt, imageViewPlaying;
-        TextView textViewArtistName, textViewMusicName;
-        GifImageView gifImageView;
+        ImageView imageViewArt;
+        TextView textViewArtist, textViewQuantity;
 
         public ViewHolder(View itemView) {
             super(itemView);
-            imageViewArt = itemView.findViewById(R.id.itemInternalMusicList_ImageView_Art);
-            textViewArtistName = itemView.findViewById(R.id.itemInternalMusicList_TextView_ArtistName);
-            textViewMusicName = itemView.findViewById(R.id.itemInternalMusicList_TextView_MusicName);
-            imageViewPlaying = itemView.findViewById(R.id.itemInternalMusicList_ImageView_Playing);
-            gifImageView = itemView.findViewById(R.id.itemInternalMusicList_ImageView_Gif);
+            imageViewArt = itemView.findViewById(R.id.itemInternalArtistList_ImageView_Art);
+            textViewArtist = itemView.findViewById(R.id.itemInternalArtistList_TextView_ArtistName);
+            textViewQuantity = itemView.findViewById(R.id.itemInternalArtistList_TextView_Quantity);
         }
     }
 
     public int getItemCount() {
-        return filteredFiles.size();
+        return filteredList.size();
     }
 
-    public File getFile(int position){
+    /*public File getFile(int position){
         return filteredFiles.get(position);
     }
 
@@ -174,9 +160,9 @@ public class InternalMusicListAdapter extends RecyclerView.Adapter <InternalMusi
                 notifyDataSetChanged();
             }
         };
-    }
+    }*/
 
-    private void GetMusicInfo(String source, ImageView imageViewArt, TextView textViewArtistName, TextView textViewMusicName){
+    /*private void GetMusicInfo(String source, ImageView imageViewArt, TextView textViewArtist){
         MediaMetadataRetriever mediaMetadataRetriever = new MediaMetadataRetriever();
         mediaMetadataRetriever.setDataSource(source);
 
@@ -188,15 +174,13 @@ public class InternalMusicListAdapter extends RecyclerView.Adapter <InternalMusi
             Bitmap songImage = BitmapFactory.decodeByteArray(art, 0, art.length);
             imageViewArt.setImageBitmap(songImage);
 
-            textViewArtistName.setText(mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST));
-            textViewMusicName.setText(mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE));
+            textViewArtist.setText(mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST));
         } catch (Exception e) {
             imageViewArt.setImageBitmap(null);
             String unknown = "Arquivo sem informações";
             String filename = source.replace(path,"").replace("/","").replace(".mp3","");
-            textViewArtistName.setText(filename);
-            textViewMusicName.setText(unknown);
+            textViewArtist.setText(filename);
         }
-    }
+    }*/
 
 }
