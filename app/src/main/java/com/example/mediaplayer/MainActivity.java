@@ -1,6 +1,7 @@
 package com.example.mediaplayer;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -69,6 +70,7 @@ public class MainActivity extends AppCompatActivity {
     private CircleButton buttonNext, buttonPlay, buttonPrevious;
     private CircleButton buttonFavorite, buttonExternalMusicList, buttonInternalMusicList;
     private CircleButton buttonShuffle, buttonRepeat;
+
     private ImageView imageViewArt;
     private static MediaPlayer mediaPlayer;
 
@@ -78,7 +80,7 @@ public class MainActivity extends AppCompatActivity {
     private ProgressBar progress;
 
     private double currentTime = 0;
-    private double finalTime = 0;
+    private double duration = 0;
 
     private final Handler myHandler = new Handler();
     private SeekBar seekbar;
@@ -110,61 +112,65 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        setContentView(R.layout.activity_main);
-
-        mediaPlayer = new MediaPlayer();
-
-        buttonNext = findViewById(R.id.activityMain_Button_Next);
-        buttonPlay = findViewById(R.id.activityMain_Button_Play);
-        buttonPrevious = findViewById(R.id.activityMain_Button_Previous);
-        imageViewArt = findViewById(R.id.activityMain_ImageView_Art);
-
-        textViewCurrentTime = findViewById(R.id.activityMain_TextView_CurrentTime);
-        textViewTotalTime = findViewById(R.id.activityMain_TextView_TotalTime);
-        textViewMusicName = findViewById(R.id.activityMain_TextView_MusicName);
-        textViewArtistName = findViewById(R.id.activityMain_TextView_ArtistName);
-
-        buttonShuffle = findViewById(R.id.activityMain_Button_Shuffle);
-        buttonRepeat = findViewById(R.id.activityMain_Button_Repeat);
-
-        buttonInternalMusicList = findViewById(R.id.activityMain_Button_InternalMusicList);
-        buttonExternalMusicList = findViewById(R.id.activityMain_Button_ExternalMusicList);
-
-        buttonFavorite = findViewById(R.id.activityMain_Button_Favorite);
-
-        progress = findViewById(R.id.activityMain_ImageView_ProgressBar);
-        progress.setVisibility(View.INVISIBLE);
-
-        seekbar = findViewById(R.id.activityMain_SeekBar);
-        seekbar.setClickable(false);
-
-        buttonPlay.setImageDrawable(ResourcesCompat.getDrawable(getResources(),R.drawable.ic_play_arrow_purple,getTheme()));
-
-        path = Objects.requireNonNull(getExternalFilesDir(Environment.DIRECTORY_MUSIC)).getPath();
-
-        favoriteList = new ArrayList<>();
-        SetButtons();
-        LoadPreferences();
-        GetInternalMusicList();
-        Shuffle();
-        SetMusic(0);
-
-        createChannel();
-
-        TextView textViewVersion = findViewById(R.id.activityMain_TextView_Version);
-        String ver = "Versão não encontrada";
         try {
-            PackageInfo packageInfo;
-            packageInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
-            ver = "Versão " + packageInfo.versionName;
-            textViewVersion.setText(ver);
-        } catch (Exception e) {
-            textViewVersion.setText(ver);
+            setContentView(R.layout.activity_main);
+
+            mediaPlayer = new MediaPlayer();
+
+            buttonNext = findViewById(R.id.activityMain_Button_Next);
+            buttonPlay = findViewById(R.id.activityMain_Button_Play);
+            buttonPrevious = findViewById(R.id.activityMain_Button_Previous);
+            imageViewArt = findViewById(R.id.activityMain_ImageView_Art);
+
+            textViewCurrentTime = findViewById(R.id.activityMain_TextView_CurrentTime);
+            textViewTotalTime = findViewById(R.id.activityMain_TextView_TotalTime);
+            textViewMusicName = findViewById(R.id.activityMain_TextView_MusicName);
+            textViewArtistName = findViewById(R.id.activityMain_TextView_ArtistName);
+
+            buttonShuffle = findViewById(R.id.activityMain_Button_Shuffle);
+            buttonRepeat = findViewById(R.id.activityMain_Button_Repeat);
+
+            buttonInternalMusicList = findViewById(R.id.activityMain_Button_InternalMusicList);
+            buttonExternalMusicList = findViewById(R.id.activityMain_Button_ExternalMusicList);
+
+            buttonFavorite = findViewById(R.id.activityMain_Button_Favorite);
+
+            progress = findViewById(R.id.activityMain_ImageView_ProgressBar);
+            progress.setVisibility(View.INVISIBLE);
+
+            seekbar = findViewById(R.id.activityMain_SeekBar);
+            seekbar.setClickable(false);
+
+            buttonPlay.setImageDrawable(ResourcesCompat.getDrawable(getResources(), R.drawable.ic_play_arrow_purple, getTheme()));
+
+            path = Objects.requireNonNull(getExternalFilesDir(Environment.DIRECTORY_MUSIC)).getPath();
+
+            favoriteList = new ArrayList<>();
+            SetButtons();
+            LoadPreferences();
+            GetInternalMusicList();
+            Shuffle();
+            SetMusic(0);
+
+            createChannel();
+
+            TextView textViewVersion = findViewById(R.id.activityMain_TextView_Version);
+            String ver = "Versão não encontrada";
+            try {
+                PackageInfo packageInfo;
+                packageInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+                ver = "Versão " + packageInfo.versionName;
+                textViewVersion.setText(ver);
+            } catch (Exception e) {
+                textViewVersion.setText(ver);
+            }
+
+            registerReceiver(onDownloadComplete, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
+
+            myHandler.postDelayed(UpdateSongTime, 100);
+        }catch (Exception e){
+            Handler.ShowSnack("Houve um erro","MainActivity.onCreate: " + e.getMessage(), this, R_ID);
         }
-
-        registerReceiver(onDownloadComplete, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
-
-        myHandler.postDelayed(UpdateSongTime,100);
     }
 
     @Override
@@ -280,6 +286,7 @@ public class MainActivity extends AppCompatActivity {
         try {
             //if(mediaPlayer.getDuration() == 0) return;
 
+            if(selectedFileName.equals("")) return;
             mediaPlayer.seekTo((int) currentTime);
             if (mediaPlayer.isPlaying()) {
                 SetPlay(false);
@@ -322,16 +329,21 @@ public class MainActivity extends AppCompatActivity {
         if(internalAdapter.getItemCount() < 1){
             return;
         }
+
         boolean isPlaying = mediaPlayer.isPlaying();
         mediaPlayer.stop();
 
-        if(internalAdapter.getFilePosition(selectedFileName) >= internalAdapter.getItemCount()-1){
+        int filePosition =  internalAdapter.getFilePosition(selectedFileName);
+        if(filePosition >= internalAdapter.getItemCount()-1){
             selectedFileName = internalAdapter.getFile(0).getName();
             SetMusic(0);
         }else {
             SetMusic(1);
         }
-        SetPlay(isPlaying);
+        
+        if(isPlaying) {
+            SetPlay(true);
+        }
     }
 
     private void SetPlay(boolean isPlay){
@@ -374,10 +386,10 @@ public class MainActivity extends AppCompatActivity {
                 mediaPlayer = new MediaPlayer();
                 mediaPlayer = MediaPlayer.create(this, Uri.parse(internalAdapter.getFile(newPosition).getAbsolutePath()));
 
-                finalTime = mediaPlayer.getDuration();
-                String Minutes = String.valueOf(TimeUnit.MILLISECONDS.toMinutes((long) finalTime));
-                String Seconds = String.valueOf(TimeUnit.MILLISECONDS.toSeconds((long) finalTime)
-                        - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes((long) finalTime)));
+                duration = mediaPlayer.getDuration();
+                String Minutes = String.valueOf(TimeUnit.MILLISECONDS.toMinutes((long) duration));
+                String Seconds = String.valueOf(TimeUnit.MILLISECONDS.toSeconds((long) duration)
+                        - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes((long) duration)));
                 if(Seconds.length() < 2){
                     Seconds = "0"+Seconds;
                 }
@@ -828,12 +840,12 @@ public class MainActivity extends AppCompatActivity {
             mediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
             mediaPlayer.setDataSource(url);
             mediaPlayer.prepare();
-            finalTime = mediaPlayer.getDuration();
+            duration = mediaPlayer.getDuration();
 
-            finalTime = mediaPlayer.getDuration();
-            String Minutes = String.valueOf(TimeUnit.MILLISECONDS.toMinutes((long) finalTime));
-            String Seconds = String.valueOf(TimeUnit.MILLISECONDS.toSeconds((long) finalTime)
-                    - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes((long) finalTime)));
+            duration = mediaPlayer.getDuration();
+            String Minutes = String.valueOf(TimeUnit.MILLISECONDS.toMinutes((long) duration));
+            String Seconds = String.valueOf(TimeUnit.MILLISECONDS.toSeconds((long) duration)
+                    - TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes((long) duration)));
             if(Seconds.length() < 2){
                 Seconds = "0"+Seconds;
             }
@@ -986,27 +998,25 @@ public class MainActivity extends AppCompatActivity {
     private final Runnable UpdateSongTime = new Runnable() {
         @SuppressLint("DefaultLocale")
         public void run() {
-            if(!selectedFileName.equals("") && mediaPlayer.isPlaying()) {
+            if(!selectedFileName.equals("") /*&& mediaPlayer.isPlaying()*/) {
 
                 currentTime = mediaPlayer.getCurrentPosition();
 
-                int current = mediaPlayer.getCurrentPosition();
-                int duration = mediaPlayer.getDuration();
                 switch (repeat) {
                     case "N":
-                        if (current >= duration - 1000) {
+                        if (currentTime >= duration - 1000) {
                             SetPlay(false);
                             currentTime = 0;
                             mediaPlayer.seekTo(0);
                         }
                         break;
                     case "1":
-                        if (current >= duration - 1000) {
+                        if (currentTime >= duration - 1000) {
                             mediaPlayer.seekTo(0);
                         }
                         break;
                     case "A":
-                        if (current >= duration - 1000) {
+                        if (currentTime >= duration - 1000) {
                             Next();
                         }
                         break;
@@ -1020,7 +1030,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 textViewCurrentTime.setText(String.format("%s:%s", Minutes, Seconds));
 
-                seekbar.setMax((int) finalTime);
+                seekbar.setMax((int) duration);
                 seekbar.setProgress((int) currentTime);
 
                 if (!mediaPlayer.isPlaying()) {
@@ -1056,14 +1066,16 @@ public class MainActivity extends AppCompatActivity {
 
     private void beginDownload(String filename){
         File file = new File(Objects.requireNonNull(getExternalFilesDir(Environment.DIRECTORY_MUSIC)).getAbsolutePath(),filename);
-        DownloadManager.Request request=new DownloadManager.Request(Uri.parse(ApiClient.BASE_URL+filename))
+        DownloadManager.Request request = null;// Set if download is allowed on roaming network
+        request = new DownloadManager.Request(Uri.parse(ApiClient.BASE_URL+filename))
                 .setTitle(filename)// Title of the Download Notification
                 .setDescription("Baixando")// Description of the Download Notification
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)// Visibility of the download Notification
                 .setDestinationUri(Uri.fromFile(file))// Uri of the destination file
                 .setRequiresCharging(false)// Set if charging is required to begin the download
                 .setAllowedOverMetered(true)// Set if download is allowed on Mobile network
-                .setAllowedOverRoaming(true);// Set if download is allowed on roaming network
+                .setAllowedOverRoaming(true);
+
         DownloadManager downloadManager= (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
         downloadID = downloadManager.enqueue(request);// enqueue puts the download request in the queue.
     }
