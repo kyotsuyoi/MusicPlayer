@@ -5,7 +5,15 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/colorPrimaryDark">
+
+    android:background="@drawable/rounded_box">
+
+    <LinearLayout
+        android:layout_width="500dp"
+        android:layout_height="0dp"
+        android:orientation="vertical"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"></LinearLayout>
 
     <LinearLayout
         android:id="@+id/linearLayout"
@@ -15,37 +23,34 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
+        <SearchView
+            android:id="@+id/dialogInternalMusic_SearchView"
+            style="Widget.AppCompat.SearchView"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:theme="@style/SearchViewStyle"
+            android:tooltipText="Nome da tarefa"
+            tools:targetApi="o">
+
+        </SearchView>
+
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
-
-            <SearchView
-                android:id="@+id/dialogInternalMusic_SearchView"
-                style="Widget.AppCompat.SearchView"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:theme="@style/SearchViewStyle"
-                android:tooltipText="Nome da tarefa"
-                app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@+id/dialogInternalMusic_Button_Artist"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                tools:targetApi="o">
-
-            </SearchView>
+            android:layout_height="match_parent"
+            android:layout_gravity="end">
 
             <at.markushi.ui.CircleButton
                 android:id="@+id/dialogInternalMusic_Button_Favorite"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_marginEnd="8dp"
-                app:cb_color="@color/colorPrimaryDark"
+                android:contentDescription="@string/todo"
                 android:src="@drawable/ic_favorite_purple"
+                app:cb_color="@color/colorPrimaryDark"
                 app:cb_pressedRingWidth="0dp"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                android:contentDescription="@string/todo" />
+                app:layout_constraintTop_toTopOf="parent" />
 
             <at.markushi.ui.CircleButton
                 android:id="@+id/dialogInternalMusic_Button_List"
@@ -103,7 +108,7 @@
 
     <LinearLayout
         android:id="@+id/dialogInternalMusic_LinearLayout"
-        android:layout_width="match_parent"
+        android:layout_width="500dp"
         android:layout_height="16dp"
         android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
