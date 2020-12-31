@@ -1,12 +1,10 @@
 package com.example.mediaplayer;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import android.annotation.SuppressLint;
 import android.app.Dialog;
@@ -14,6 +12,7 @@ import android.app.DownloadManager;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -30,10 +29,8 @@ import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.util.DisplayMetrics;
-import android.view.KeyEvent;
 import android.view.View;
 
-import android.view.animation.Animation;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
@@ -43,7 +40,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.mediaplayer.CommonClasses.ApiClient;
-import com.example.mediaplayer.CommonClasses.OnClearFormRecentService;
+import com.example.mediaplayer.Services.HeadphoneButtonService;
+import com.example.mediaplayer.Services.HeadphonePlugService;
+import com.example.mediaplayer.Services.OnClearFormRecentService;
 import com.example.mediaplayer.CommonClasses.PlayerNotification;
 import com.example.mediaplayer.CommonClasses.RecyclerItemClickListener;
 import com.google.gson.JsonArray;
@@ -109,6 +108,12 @@ public class MainActivity extends AppCompatActivity {
 
     private long downloadID;
 
+    private final HeadphonePlugService servicePlug = new HeadphonePlugService();
+    //private final HeadphoneButtonService serviceButton = new HeadphoneButtonService();
+
+    private AudioManager audioManager;
+    private ComponentName receiverComponent;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -169,6 +174,16 @@ public class MainActivity extends AppCompatActivity {
             registerReceiver(onDownloadComplete, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
 
             myHandler.postDelayed(UpdateSongTime, 100);
+
+            IntentFilter filterPlug = new IntentFilter(Intent.ACTION_HEADSET_PLUG);
+            //IntentFilter filterButton = new IntentFilter(Intent.ACTION_MEDIA_BUTTON);
+            registerReceiver(servicePlug, filterPlug);
+            //registerReceiver(serviceButton, filterButton);
+
+            audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            receiverComponent = new ComponentName(this, HeadphoneButtonService.class);
+            audioManager.registerMediaButtonEventReceiver(receiverComponent);
+
         }catch (Exception e){
             Handler.ShowSnack("Houve um erro","MainActivity.onCreate: " + e.getMessage(), this, R_ID);
         }
@@ -182,28 +197,27 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        //audioManager.unregisterMediaButtonEventReceiver(audioManagerReceiver);
         super.onDestroy();
-        //unregisterReceiver(onDownloadComplete);
 
-        if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            notificationManager.cancelAll();
-        }
+        notificationManager.cancelAll();
 
         unregisterReceiver(broadcastReceiver);
+        unregisterReceiver(servicePlug);
+        //unregisterReceiver(serviceButton);
+        audioManager.unregisterMediaButtonEventReceiver(receiverComponent);
     }
 
     @Override
     public void onBackPressed() {}
 
-    @Override
+    /*@Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
         if(keyCode == KeyEvent.KEYCODE_HEADSETHOOK){
             Play();
             return true;
         }
         return super.onKeyDown(keyCode, event);
-    }
+    }*/
 
     private void createChannel(){
 
@@ -219,9 +233,8 @@ public class MainActivity extends AppCompatActivity {
                 notificationManager.createNotificationChannel(channel);
             }
 
-            registerReceiver(broadcastReceiver, new IntentFilter("TRACKS_TRACK"));
+            registerReceiver(broadcastReceiver, new IntentFilter("broadcastAction"));
             startService(new Intent(getBaseContext(), OnClearFormRecentService.class));
-
         }
     }
 
@@ -1068,6 +1081,7 @@ public class MainActivity extends AppCompatActivity {
                     PlayerNotification.createNotification(context);
                     break;
                 case PlayerNotification.ACTION_PLAY:
+                case "android.intent.action.MEDIA_BUTTON":
                     Play();
                     PlayerNotification.createNotification(context);
                     break;
@@ -1075,9 +1089,12 @@ public class MainActivity extends AppCompatActivity {
                     Next();
                     PlayerNotification.createNotification(context);
                     break;
+                case "pause":
+                    SetPlay(false);
+                    PlayerNotification.createNotification(context);
+                    break;
             }
         }
-
     };
 
     private void beginDownload(String filename){

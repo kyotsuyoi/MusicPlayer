@@ -16,8 +16,20 @@
         android:networkSecurityConfig="@xml/network_security_config"
         tools:targetApi="n">
 
-        <service android:name=".CommonClasses.OnClearFormRecentService"/>
-        <receiver android:name=".CommonClasses.NotificationActionService"/>
+        <service android:name=".Services.OnClearFormRecentService"/>
+        <receiver android:name=".Services.NotificationActionService"/>
+
+        <receiver android:name=".Services.HeadphoneButtonService">
+            <intent-filter>
+                <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
+
+        <receiver android:name=".Services.HeadphonePlugService">
+            <intent-filter>
+                <action android:name="android.intent.action.ACTION_HEADSET_PLUG"/>
+            </intent-filter>
+        </receiver>
 
         <activity android:name=".MainActivity"
             android:configChanges="orientation|keyboardHidden|screenSize">
