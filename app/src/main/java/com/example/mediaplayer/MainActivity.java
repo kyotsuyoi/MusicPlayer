@@ -33,6 +33,7 @@ import android.util.DisplayMetrics;
 import android.view.KeyEvent;
 import android.view.View;
 
+import android.view.animation.Animation;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.ProgressBar;
@@ -191,6 +192,9 @@ public class MainActivity extends AppCompatActivity {
 
         unregisterReceiver(broadcastReceiver);
     }
+
+    @Override
+    public void onBackPressed() {}
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
@@ -608,9 +612,21 @@ public class MainActivity extends AppCompatActivity {
                         Handler.ShowSnack("Houve um erro","MainActivity.GetExternalMusicList.onResponse: " + e.getMessage(), MainActivity.this, R_ID);
                     }
 
-                    buttonExternalMusicList.setEnabled(true);
-                    buttonExternalMusicList.setVisibility(View.VISIBLE);
                     progress.setVisibility(View.INVISIBLE);
+                    buttonExternalMusicList.setVisibility(View.VISIBLE);
+                    buttonExternalMusicList.setAlpha(0.3f);
+                    Thread t = new Thread(() -> {
+                        try {
+                            Thread.sleep(3000);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        runOnUiThread(() -> {
+                            buttonExternalMusicList.setAlpha(1f);
+                            buttonExternalMusicList.setEnabled(true);
+                        });
+                    });
+                    t.start();
                 }
 
                 @Override
