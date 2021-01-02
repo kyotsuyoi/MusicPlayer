@@ -48,14 +48,11 @@ public class InternalArtistListAdapter extends RecyclerView.Adapter <InternalArt
         try {
             JsonObject jsonObject = filteredList.get(position).getAsJsonObject();
 
-            /*GetMusicInfo(
-                    jsonObject.get("filename").getAsString(),
-                    viewHolder.imageViewArt,
-                    viewHolder.textViewArtist
-            );*/
-
+            String quantity = jsonObject.get("quantity").getAsString()+" músicas";
             viewHolder.textViewArtist.setText(jsonObject.get("artist").getAsString());
-            viewHolder.textViewQuantity.setText(jsonObject.get("quantity").getAsString());
+            viewHolder.textViewQuantity.setText(quantity);
+
+            viewHolder.imageViewArt.setImageBitmap(Handler.ImageDecode(jsonObject.get("art").getAsString()));
 
         }catch (Exception e){
             if(!isBindViewHolderError) {
@@ -87,11 +84,11 @@ public class InternalArtistListAdapter extends RecyclerView.Adapter <InternalArt
         return filteredList.size();
     }
 
-    /*public File getFile(int position){
-        return filteredFiles.get(position);
+    public String getArtistName(int position){
+        return filteredList.get(position).getAsJsonObject().get("artist").getAsString();
     }
 
-    public List<File> getFiles(){
+    /*public List<File> getFiles(){
         return files;
     }
 

@@ -13,19 +13,28 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <ImageView
-            android:id="@+id/activityMain_ImageView_Art"
+        <androidx.cardview.widget.CardView
             android:layout_width="300dp"
             android:layout_height="300dp"
-            android:layout_centerHorizontal="true"
+            app:cardCornerRadius="20dp"
             android:layout_marginStart="16dp"
             android:layout_marginTop="16dp"
             android:layout_marginEnd="16dp"
-            android:background="@mipmap/default_art"
-            android:contentDescription="@string/todo"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintTop_toTopOf="parent" >
+
+            <ImageView
+                android:id="@+id/activityMain_ImageView_Art"
+                android:layout_width="300dp"
+                android:layout_height="300dp"
+                android:layout_centerHorizontal="true"
+                android:background="@mipmap/default_art"
+                android:contentDescription="@string/todo"/>
+
+        </androidx.cardview.widget.CardView>
+
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -88,8 +97,8 @@
 
         <at.markushi.ui.CircleButton
             android:id="@+id/activityMain_Button_Shuffle"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:layout_marginStart="8dp"
             android:contentDescription="@string/todo"
             android:src="@drawable/ic_no_transform"
@@ -100,8 +109,8 @@
 
         <at.markushi.ui.CircleButton
             android:id="@+id/activityMain_Button_Repeat"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
             android:layout_marginEnd="8dp"
             android:contentDescription="@string/todo"
             android:src="@drawable/ic_no_repeat"

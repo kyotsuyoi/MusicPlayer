@@ -32,6 +32,45 @@
             android:tooltipText="Nome da tarefa"
             tools:targetApi="o"></SearchView>
 
+    </LinearLayout>
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/dialogExternalMusic_SwipeRefresh"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="52dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="52dp"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toTopOf="@+id/dialogInternalMusic_LinearLayout"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/linearLayout">
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/dialogExternalMusic_RecyclerView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="52dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="52dp"
+        app:layout_constraintBottom_toTopOf="@+id/dialogInternalMusic_LinearLayout"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+    <LinearLayout
+        android:id="@+id/dialogInternalMusic_LinearLayout"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
@@ -42,6 +81,7 @@
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_marginEnd="8dp"
+                android:layout_marginBottom="8dp"
                 android:src="@drawable/ic_view_list_purple"
                 app:cb_color="@color/colorPrimaryDark"
                 app:cb_pressedRingWidth="0dp"
@@ -54,6 +94,7 @@
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_marginEnd="8dp"
+                android:layout_marginBottom="8dp"
                 android:src="@drawable/ic_library_music_purple"
                 app:cb_color="@color/colorPrimaryDark"
                 app:cb_pressedRingWidth="0dp"
@@ -63,29 +104,6 @@
                 app:srcCompat="@drawable/ic_library_music_purple" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
-
     </LinearLayout>
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/dialogExternalMusic_RecyclerView"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_marginStart="8dp"
-        android:layout_marginTop="52dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginBottom="8dp"
-        app:layout_constraintBottom_toTopOf="@+id/dialogInternalMusic_LinearLayout"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <LinearLayout
-        android:id="@+id/dialogInternalMusic_LinearLayout"
-        android:layout_width="match_parent"
-        android:layout_height="16dp"
-        android:orientation="vertical"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
