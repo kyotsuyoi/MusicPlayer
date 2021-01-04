@@ -100,6 +100,7 @@ public class MainActivity extends AppCompatActivity {
     private InternalMusicListAdapter internalMusicListAdapter;
     private ExternalMusicListAdapter externalMusicListAdapter;
     private InternalArtistListAdapter internalArtistListAdapter;
+    private ExternalArtistListAdapter externalArtistListAdapter;
 
     private final com.RockLinker.CommonClasses.Handler Handler = new com.RockLinker.CommonClasses.Handler();
     private final int R_ID = R.id.activityMain_Button_Play;
@@ -124,6 +125,7 @@ public class MainActivity extends AppCompatActivity {
     //Type 1 to internal music list
     //Type 2 to internal music artist
     //Type 3 to external music list
+    //Type 4 to external music artist
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -217,23 +219,14 @@ public class MainActivity extends AppCompatActivity {
         //unregisterReceiver(serviceButton);
         audioManager.unregisterMediaButtonEventReceiver(receiverComponent);
 
-        SharedPreferences settings = getSharedPreferences(PREFERENCES, 0);
+        /*SharedPreferences settings = getSharedPreferences(PREFERENCES, 0);
         SharedPreferences.Editor editor = settings.edit();
         editor.putInt("audioID", mediaPlayer.getAudioSessionId());
         editor.apply();
-        mediaPlayer.stop();
+        mediaPlayer.stop();*/
 
         super.onDestroy();
     }
-
-    /*@Override
-    public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if(keyCode == KeyEvent.KEYCODE_HEADSETHOOK){
-            Play();
-            return true;
-        }
-        return super.onKeyDown(keyCode, event);
-    }*/
 
     private void createChannel(){
 
@@ -292,7 +285,8 @@ public class MainActivity extends AppCompatActivity {
 
         buttonExternalMusicList.setOnClickListener(v -> {
             GetInternalMusicList();
-            GetExternalMusicList();
+            DialogExternalMusicList();
+            //GetExternalMusicList();
         });
 
         buttonFavorite.setOnClickListener(v -> setFavorite());
@@ -321,13 +315,14 @@ public class MainActivity extends AppCompatActivity {
             mediaPlayer.seekTo((int) currentTime);
             if (mediaPlayer.isPlaying()) {
                 SetPlay(false);
-                return;
+            }else{
+                SetPlay(true);
             }
-
-            SetPlay(true);
         }catch (Exception e){
             Handler.ShowSnack("Houve um erro","MainActivity.Play: " + e.getMessage(), MainActivity.this, R_ID);
         }
+
+        PlayerNotification.createNotification(this);
     }
 
     private void Previous(){
@@ -353,9 +348,9 @@ public class MainActivity extends AppCompatActivity {
 
         if(isPlaying) {
             SetPlay(true);
-        }else{
-            PlayerNotification.createNotification(this);
         }
+
+        PlayerNotification.createNotification(this);
     }
 
     private void Next(){
@@ -376,9 +371,9 @@ public class MainActivity extends AppCompatActivity {
         
         if(isPlaying) {
             SetPlay(true);
-        }else{
-            PlayerNotification.createNotification(this);
         }
+
+        PlayerNotification.createNotification(this);
     }
 
     private void SetPlay(boolean isPlay){
@@ -397,7 +392,6 @@ public class MainActivity extends AppCompatActivity {
             if(externalMusicListAdapter != null){
                 externalMusicListAdapter.notifyDataSetChanged();
             }
-            PlayerNotification.createNotification(this);
         }catch (Exception e){
             Handler.ShowSnack("Houve um erro","MainActivity.SetPlay: " + e.getMessage(), MainActivity.this, R_ID);
         }
@@ -459,7 +453,7 @@ public class MainActivity extends AppCompatActivity {
                                 break;
                             case 2:
                                 internalMusicListAdapter.getFilter().filter(internalArtistListAdapter.getArtistName(position));
-                                listType =1;
+                                listType = 1;
                                 recyclerViewMusicList.setAdapter(internalMusicListAdapter);
                                 break;
                             case 3:
@@ -486,6 +480,11 @@ public class MainActivity extends AppCompatActivity {
                                 SetPlay(true);
                                 selectedFileName = externalMusicListAdapter.getFileName(position);
                                 externalMusicListAdapter.notifyDataSetChanged();
+                                break;
+                            case 4:
+                                listType = 3;
+                                if (externalArtistListAdapter == null) return;
+                                GetExternalMusicList(externalArtistListAdapter.getArtistName(position));
                                 break;
                         }
                     }catch (Exception e){
@@ -535,9 +534,24 @@ public class MainActivity extends AppCompatActivity {
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String s) {
-                if (!(externalMusicListAdapter == null)) {
-                    externalMusicListAdapter.getFilter().filter(s);
+                try {
+                    switch (listType) {
+                        case 3:
+                            if (!(externalMusicListAdapter == null)) {
+                                externalMusicListAdapter.getFilter().filter(s);
+                            }
+                            break;
+                        case 4:
+                            if (!(externalArtistListAdapter == null)) {
+                                externalArtistListAdapter.getFilter().filter(s);
+                                //Toast.makeText(getApplicationContext(),"Implementando",Toast.LENGTH_LONG).show();
+                            }
+                            break;
+                    }
+                }catch (Exception e){
+                    Handler.ShowSnack("Houve um erro","MainActivity.SetExternalSearchView.onQueryTextSubmit: " + e.getMessage(), MainActivity.this, R_ID);
                 }
+
                 return false;
             }
 
@@ -604,7 +618,6 @@ public class MainActivity extends AppCompatActivity {
                         quantity++;
                         jsonArray.get(i).getAsJsonObject().addProperty("quantity", quantity);
                         isFind = true;
-                        files.remove(file);
                         i = jsonArray.size();
                     }
                 }
@@ -616,7 +629,6 @@ public class MainActivity extends AppCompatActivity {
                     newJson.addProperty("art",  jsonObject.get("art").getAsString());
                     jsonArray.add(newJson);
                 }
-
             }
         }catch (Exception e){
             Handler.ShowSnack("Houve um erro","MainActivity.getInternalArtistList: " + e.getMessage(), this, R_ID);
@@ -625,13 +637,13 @@ public class MainActivity extends AppCompatActivity {
         return jsonArray;
     }
 
-    private void GetExternalMusicList(){
+    private void GetExternalMusicList(String artist){
         try {
             buttonExternalMusicList.setEnabled(false);
             buttonExternalMusicList.setVisibility(View.INVISIBLE);
             progress.setVisibility(View.VISIBLE);
 
-            Call<JsonObject> call = musicListInterface.GetMusicList();
+            Call<JsonObject> call = musicListInterface.GetMusicList(artist);
             call.enqueue(new Callback<JsonObject>() {
                 @Override
                 public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
@@ -641,7 +653,8 @@ public class MainActivity extends AppCompatActivity {
                             assert jsonObject != null;
                             JsonArray data = jsonObject.get("data").getAsJsonArray();
 
-                            DialogExternalMusicList(data);
+                            externalMusicListAdapter = new ExternalMusicListAdapter(internalMusicListAdapter.getFiles(), data, MainActivity.this, R.id.activityMain_Button_Play);
+                            recyclerViewMusicList.setAdapter(externalMusicListAdapter);
                         }
                     }catch (Exception e){
                         Handler.ShowSnack("Houve um erro","MainActivity.GetExternalMusicList.onResponse: " + e.getMessage(), MainActivity.this, R_ID);
@@ -676,6 +689,65 @@ public class MainActivity extends AppCompatActivity {
 
         }catch (Exception e){
             Handler.ShowSnack("Houve um erro","MainActivity.GetExternalMusicList: " + e.getMessage(), MainActivity.this, R_ID);
+
+            buttonExternalMusicList.setEnabled(true);
+            buttonExternalMusicList.setVisibility(View.VISIBLE);
+            progress.setVisibility(View.INVISIBLE);
+        }
+    }
+
+    private void GetExternalArtistList(){
+        try {
+            buttonExternalMusicList.setEnabled(false);
+            buttonExternalMusicList.setVisibility(View.INVISIBLE);
+            progress.setVisibility(View.VISIBLE);
+
+            Call<JsonObject> call = musicListInterface.GetArtistList();
+            call.enqueue(new Callback<JsonObject>() {
+                @Override
+                public void onResponse(@NonNull Call<JsonObject> call, @NonNull Response<JsonObject> response) {
+                    try {
+                        if (!Handler.isRequestError(response, MainActivity.this, R_ID)){
+                            JsonObject jsonObject = response.body();
+                            assert jsonObject != null;
+                            JsonArray data = jsonObject.get("data").getAsJsonArray();
+
+                            externalArtistListAdapter = new ExternalArtistListAdapter(data, MainActivity.this, R.id.activityMain_Button_Play);
+                            recyclerViewMusicList.setAdapter(externalArtistListAdapter);
+                        }
+                    }catch (Exception e){
+                        Handler.ShowSnack("Houve um erro","MainActivity.GetExternalArtistList.onResponse: " + e.getMessage(), MainActivity.this, R_ID);
+                    }
+
+                    progress.setVisibility(View.INVISIBLE);
+                    buttonExternalMusicList.setVisibility(View.VISIBLE);
+                    buttonExternalMusicList.setAlpha(0.3f);
+                    Thread t = new Thread(() -> {
+                        try {
+                            Thread.sleep(3000);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        runOnUiThread(() -> {
+                            buttonExternalMusicList.setAlpha(1f);
+                            buttonExternalMusicList.setEnabled(true);
+                        });
+                    });
+                    t.start();
+                }
+
+                @Override
+                public void onFailure(@NonNull Call<JsonObject> call, @NonNull Throwable t) {
+                    Handler.ShowSnack("Houve um erro","MainActivity.GetExternalArtistList.onFailure: " + t.toString(), MainActivity.this, R_ID);
+
+                    buttonExternalMusicList.setEnabled(true);
+                    buttonExternalMusicList.setVisibility(View.VISIBLE);
+                    progress.setVisibility(View.INVISIBLE);
+                }
+            });
+
+        }catch (Exception e){
+            Handler.ShowSnack("Houve um erro","MainActivity.GetExternalArtistList: " + e.getMessage(), MainActivity.this, R_ID);
 
             buttonExternalMusicList.setEnabled(true);
             buttonExternalMusicList.setVisibility(View.VISIBLE);
@@ -833,7 +905,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void DialogExternalMusicList(JsonArray data){
+    private void DialogExternalMusicList(){
         try {
             Dialog dialog = new Dialog(this);
             dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -843,6 +915,8 @@ public class MainActivity extends AppCompatActivity {
             recyclerViewMusicList = dialog.findViewById(R.id.dialogExternalMusic_RecyclerView);
             setRecyclerView();
             searchView = dialog.findViewById(R.id.dialogExternalMusic_SearchView);
+            CircleButton buttonMusic = dialog.findViewById(R.id.dialogExternalMusic_Button_Music);
+            CircleButton buttonArtist = dialog.findViewById(R.id.dialogExternalMusic_Button_Artist);
 
             RecyclerView.LayoutManager layoutManager;
             recyclerViewMusicList.setHasFixedSize(true);
@@ -854,14 +928,27 @@ public class MainActivity extends AppCompatActivity {
             swipeRefreshExternal.setColorSchemeColors(getResources().getColor(R.color.colorBlack, getTheme()));
             swipeRefreshExternal.setOnRefreshListener(this::SwipeRefreshExternalAction);
 
-            externalMusicListAdapter = new ExternalMusicListAdapter(internalMusicListAdapter.getFiles(), data, this, R.id.activityMain_Button_Play);
+            listType=4;
+            GetExternalArtistList();
 
-            recyclerViewMusicList.setAdapter(externalMusicListAdapter);
+            buttonArtist.setOnClickListener(v->{
+                listType=4;
+                GetExternalArtistList();
+            });
+
+            buttonMusic.setOnClickListener(v->{
+                Toast.makeText(this,"Implementando...",Toast.LENGTH_LONG).show();
+                //Handler.ShowSnack("Implementando",null,this,R_ID);
+                //listType=3;
+                //GetExternalMusicArt();
+            });
+
+            //externalMusicListAdapter = new ExternalMusicListAdapter(internalMusicListAdapter.getFiles(), data, this, R.id.activityMain_Button_Play);
+            //recyclerViewMusicList.setAdapter(externalMusicListAdapter);
 
             dialog.create();
             dialog.show();
 
-            listType=3;
             SetExternalSearchView();
 
         }catch (Exception e){
@@ -934,7 +1021,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void StreamPlay(String song){
         try {
-            String url = ApiClient.BASE_URL+song;
+            String url = ApiClient.BASE_URL+"songs/"+song;
 
             mediaPlayer.stop();
             mediaPlayer = new MediaPlayer();
@@ -974,7 +1061,7 @@ public class MainActivity extends AppCompatActivity {
         SharedPreferences settings = getSharedPreferences(PREFERENCES, 0);
         isShuffle = settings.getBoolean("shuffle",false);
         repeat = settings.getString("repeat","N");
-        mediaPlayer.setAudioSessionId(settings.getInt("audioID",0));
+        //mediaPlayer.setAudioSessionId(settings.getInt("audioID",0));
 
         switch (Objects.requireNonNull(repeat)){
             case "N":
@@ -1170,7 +1257,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void beginDownload(String filename){
         File file = new File(Objects.requireNonNull(getExternalFilesDir(Environment.DIRECTORY_MUSIC)).getAbsolutePath(),filename);
-        DownloadManager.Request request = new DownloadManager.Request(Uri.parse(ApiClient.BASE_URL+filename))
+        DownloadManager.Request request = new DownloadManager.Request(Uri.parse(ApiClient.BASE_URL+"songs/"+filename))
                 .setTitle(filename)
                 .setDescription("Baixando")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)

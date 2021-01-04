@@ -7,15 +7,20 @@ import retrofit2.http.GET;
 import retrofit2.http.Query;
 
 public interface MusicListInterface {
-    @GET("MusicList.php")
-    Call<JsonObject> GetMusicList();
+    @GET("index.php")
+    Call<JsonObject> GetMusicList(
+            @Query("artist") String filename
+    );
 
-    @GET("MusicList.php")
+    @GET("index.php")
+    Call<JsonObject> GetArtistList();
+
+    @GET("index.php")
     Call<JsonObject> GetMusicArt(
             @Query("filename") String filename
     );
 
-    @GET("MusicList.php")
+    @GET("index.php")
     Call<JsonObject> GetFullMusicArt(
             @Query("filename") String filename,
             @Query("fullsize") boolean fullsize

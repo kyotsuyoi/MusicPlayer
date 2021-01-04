@@ -9,6 +9,7 @@ import android.view.ViewGroup;
 import android.widget.Filter;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
@@ -223,7 +224,6 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
                     try {
 
                         while (i < data.size()) {
-                            data.get(i).getAsJsonObject().get("filename");
                             String A = data.get(i).getAsJsonObject().get("filename").toString().toLowerCase();
                             String B = charSequence.toString().toLowerCase();
                             if (A.contains(B)) {
@@ -236,7 +236,9 @@ public class ExternalMusicListAdapter extends RecyclerView.Adapter <ExternalMusi
                         results.count = jsonArray.size();
 
                     }catch (Exception e){
-                        //Handler.ShowSnack("Houve um erro", "MusicListAdapter.getFilter: " + e.getMessage(), activity, R_ID, true);
+                        Toast.makeText(activity,e.getMessage(),Toast.LENGTH_LONG).show();
+                        results.values = data;
+                        results.count = data.size();
                     }
                 }
 

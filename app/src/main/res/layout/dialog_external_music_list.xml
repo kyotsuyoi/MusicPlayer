@@ -30,9 +30,10 @@
             android:layout_height="wrap_content"
             android:theme="@style/SearchViewStyle"
             android:tooltipText="Nome da tarefa"
-            tools:targetApi="o"></SearchView>
+            tools:targetApi="o" />
 
     </LinearLayout>
+
     <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
         android:id="@+id/dialogExternalMusic_SwipeRefresh"
         android:layout_width="match_parent"
@@ -42,28 +43,24 @@
         android:layout_marginEnd="8dp"
         android:layout_marginBottom="52dp"
         android:orientation="horizontal"
-        app:layout_constraintBottom_toTopOf="@+id/dialogInternalMusic_LinearLayout"
+        app:layout_constraintBottom_toTopOf="@+id/dialogExternalMusic_LinearLayout"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/linearLayout">
 
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/dialogExternalMusic_RecyclerView"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_marginStart="8dp"
-        android:layout_marginTop="52dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginBottom="52dp"
-        app:layout_constraintBottom_toTopOf="@+id/dialogInternalMusic_LinearLayout"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/dialogExternalMusic_RecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginStart="8dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginEnd="8dp"
+            android:layout_marginBottom="16dp" />
 
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
     <LinearLayout
-        android:id="@+id/dialogInternalMusic_LinearLayout"
+        android:id="@+id/dialogExternalMusic_LinearLayout"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:orientation="vertical"
@@ -77,7 +74,7 @@
             android:layout_gravity="end">
 
             <at.markushi.ui.CircleButton
-                android:id="@+id/dialogInternalMusic_Button_List"
+                android:id="@+id/dialogExternalMusic_Button_Music"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_marginEnd="8dp"
@@ -90,7 +87,7 @@
                 app:layout_constraintTop_toTopOf="parent" />
 
             <at.markushi.ui.CircleButton
-                android:id="@+id/dialogInternalMusic_Button_Artist"
+                android:id="@+id/dialogExternalMusic_Button_Artist"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:layout_marginEnd="8dp"
@@ -99,7 +96,7 @@
                 app:cb_color="@color/colorPrimaryDark"
                 app:cb_pressedRingWidth="0dp"
                 app:layout_constraintBottom_toBottomOf="parent"
-                app:layout_constraintEnd_toStartOf="@+id/dialogInternalMusic_Button_List"
+                app:layout_constraintEnd_toStartOf="@+id/dialogExternalMusic_Button_Music"
                 app:layout_constraintTop_toTopOf="parent"
                 app:srcCompat="@drawable/ic_library_music_purple" />
 
